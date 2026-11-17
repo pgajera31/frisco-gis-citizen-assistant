@@ -21,6 +21,8 @@ export interface Session {
   history: Anthropic.Beta.Messages.BetaMessageParam[];
   offline: OfflineContext;
   turns: number;
+  /** GeoJSON of the latest answer (used to render a downloadable map image). */
+  lastMap?: { type: "FeatureCollection"; features: unknown[] };
 }
 
 const MAX_SESSIONS = 2000;

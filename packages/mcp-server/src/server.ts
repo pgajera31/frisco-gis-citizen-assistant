@@ -9,6 +9,9 @@ import { CIP_STATUSES, CIP_TYPES, findRoadProjects, findTrafficClosures } from "
 import { getSpeedLimit } from "./tools/speedLimits.js";
 import { findTrailsNear, searchTrails, TRAIL_TYPES } from "./tools/trails.js";
 import { lookupZoning } from "./tools/zoning.js";
+import { CATALOG_ITEM_TYPES, searchGisCatalog } from "./tools/catalogSearch.js";
+import { COUNTABLE_LAYERS, type CountableLayer, countFeaturesWithinRadius } from "./tools/countNear.js";
+import { getMapImage, OVERLAY_LAYERS, type OverlayLayer } from "./tools/mapImage.js";
 
 export const SERVER_NAME = "frisco-gis-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -50,7 +53,7 @@ const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: 
  */
 function textFor(result: ToolResult): string {
   if (!result.ok) return JSON.stringify(result);
-  const { map, ...rest } = result;
+  const { map, image: _image, ...rest } = result;
   return JSON.stringify({ ...rest, mapFeatureCount: map.features.length });
 }
 
@@ -65,9 +68,15 @@ function wrap<A>(tool: string, fn: (args: A) => Promise<ToolResult>) {
     }
     // Observability: one structured log line per invocation (stderr; stdout is the MCP channel).
     console.error(JSON.stringify({ evt: "tool", tool, ok: result.ok, ms: Date.now() - started, ...(result.ok ? { count: result.count } : { code: result.error.code }) }));
+    // A rendered image travels as MCP image content (for clients that display it), never in structuredContent.
+    const image = result.ok ? result.image : undefined;
+    const structured = result.ok && result.image ? { ...result, image: undefined } : result;
     return {
-      content: [{ type: "text" as const, text: textFor(result) }],
-      structuredContent: result as unknown as Record<string, unknown>,
+      content: [
+        { type: "text" as const, text: textFor(result) },
+        ...(image ? [{ type: "image" as const, data: image.data, mimeType: image.mimeType }] : []),
+      ],
+      structuredContent: JSON.parse(JSON.stringify(structured)) as Record<string, unknown>,
       isError: !result.ok,
     };
   };
@@ -349,6 +358,121 @@ export function createServer(): McpServer {
       annotations: READ_ONLY,
     },
     wrap("describe_data_sources", (a: { layer_key?: string }) => describeDataSources({ layerKey: a.layer_key })),
+  );
+
+  server.registerTool(
+    "search_gis_catalog",
+    {
+      title: "Search the City's public GIS catalog",
+      description:
+        "Search the City of Frisco's PUBLIC ArcGIS Online items (maps, apps, dashboards, services) by keyword. Returns titles, types, descriptions and links. Use it when a resident asks what maps or datasets exist.",
+      inputSchema: {
+        query: z.string().trim().min(2).max(80).describe("Keywords, e.g. 'parks', 'construction', 'trash pickup'."),
+        item_types: z.array(z.enum(CATALOG_ITEM_TYPES)).max(7).optional(),
+        limit: z.number().int().min(1).max(20).default(10),
+      },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("search_gis_catalog", (a: { query: string; item_types?: (typeof CATALOG_ITEM_TYPES)[number][]; limit?: number }) =>
+      searchGisCatalog({ query: a.query, itemTypes: a.item_types, limit: a.limit }),
+    ),
+  );
+
+  server.registerTool(
+    "count_features_within_radius",
+    {
+      title: "Count features within a distance (buffer)",
+      description:
+        `Count how many features of one City layer are within N miles of an address (server-side buffer). Layers: ${Object.entries(COUNTABLE_LAYERS)
+          .map(([k, v]) => `${k} = ${v.filterNote}`)
+          .join("; ")}.`,
+      inputSchema: {
+        address: address.optional(),
+        latitude: latitude.optional(),
+        longitude: longitude.optional(),
+        layer: z.enum(Object.keys(COUNTABLE_LAYERS) as [CountableLayer, ...CountableLayer[]]),
+        radius_miles: z.number().min(0.1).max(5),
+      },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("count_features_within_radius", async (a: { address?: string; latitude?: number; longitude?: number; layer: CountableLayer; radius_miles: number }) => {
+      needLocation(a);
+      return countFeaturesWithinRadius({ ...a, radiusMiles: a.radius_miles });
+    }),
+  );
+
+  const kinds = [
+    "search-location", "park", "amenity", "trail", "zoning", "parcel", "proposed-zoning",
+    "road-project", "traffic-closure", "speed-segment", "school-zone", "search-area",
+  ] as const;
+  const highlightSchema = z.object({
+    type: z.literal("FeatureCollection"),
+    features: z
+      .array(
+        z.object({
+          type: z.literal("Feature"),
+          geometry: z.object({
+            type: z.enum(["Point", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]),
+            coordinates: z.array(z.any()),
+          }),
+          properties: z.looseObject({
+            kind: z.enum(kinds),
+            id: z.string().max(80),
+            label: z.string().max(200),
+            styleValue: z.union([z.string().max(40), z.number()]).optional(),
+          }),
+        }),
+      )
+      .max(600),
+  });
+
+  server.registerTool(
+    "get_map_image",
+    {
+      title: "Render a static map image",
+      description:
+        "Render a PNG map (1000×700) with Esri's public print geoprocessing service: World Street Map basemap, optional live City layers, and optional highlighted result features (GeoJSON from other tools' `map`). Give an address (plus radius), a bbox, or features. Returns a temporary image URL; set include_image_data to also receive the PNG.",
+      inputSchema: {
+        address: address.optional(),
+        latitude: latitude.optional(),
+        longitude: longitude.optional(),
+        radius_miles: z.number().min(0.1).max(5).default(0.75).describe("Map extent around the location."),
+        bbox: z
+          .object({ xmin: z.number(), ymin: z.number(), xmax: z.number(), ymax: z.number() })
+          .optional()
+          .describe("Explicit WGS84 extent in the Frisco area."),
+        overlay_layers: z.array(z.enum(OVERLAY_LAYERS)).max(4).optional().describe("City layers drawn live with their own symbols."),
+        highlight: highlightSchema.optional().describe("Result features to draw (the `map` returned by other tools)."),
+        include_image_data: z.boolean().default(false).describe("Also return the PNG as MCP image content."),
+      },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap(
+      "get_map_image",
+      (a: {
+        address?: string;
+        latitude?: number;
+        longitude?: number;
+        radius_miles?: number;
+        bbox?: { xmin: number; ymin: number; xmax: number; ymax: number };
+        overlay_layers?: OverlayLayer[];
+        highlight?: unknown;
+        include_image_data?: boolean;
+      }) =>
+        getMapImage({
+          address: a.address,
+          latitude: a.latitude,
+          longitude: a.longitude,
+          radiusMiles: a.radius_miles,
+          bbox: a.bbox,
+          overlayLayers: a.overlay_layers,
+          highlight: a.highlight as never,
+          includeImageData: a.include_image_data,
+        }),
+    ),
   );
 
   return server;

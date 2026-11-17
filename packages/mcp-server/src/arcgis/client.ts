@@ -154,6 +154,41 @@ export async function getJson(url: string, params: Record<string, string>): Prom
   throw lastError ?? new GisError("NETWORK", "The City GIS service could not be reached.", url);
 }
 
+/** Largest image the server will download from the print service (bytes). */
+const MAX_BINARY_BYTES = 8 * 1024 * 1024;
+
+/** Download a binary file (e.g. a rendered PNG) from an approved endpoint. */
+export async function getBinary(url: string): Promise<{ bytes: Buffer; contentType: string }> {
+  assertApprovedUrl(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.arcgisTimeoutMs);
+  try {
+    const res = await fetchImpl(url, { signal: controller.signal });
+    if (!res.ok) throw new GisError("HTTP_ERROR", "The map image could not be downloaded.", `${url}: HTTP ${res.status}`);
+    const contentType = res.headers.get("content-type") ?? "application/octet-stream";
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length > MAX_BINARY_BYTES) throw new GisError("TOO_MANY_RESULTS", "The map image is too large.", url);
+    return { bytes, contentType };
+  } catch (err) {
+    if (err instanceof GisError) throw err;
+    const aborted = (err as Error)?.name === "AbortError";
+    throw new GisError(aborted ? "TIMEOUT" : "NETWORK", aborted ? "The map service took too long to respond." : "The map service could not be reached.", url);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Server-side count of features within `miles` of a point (ArcGIS distance buffer). */
+export async function countWithinRadius(layer: LayerKey, point: { lon: number; lat: number }, miles: number, where = "1=1"): Promise<number> {
+  const p = buildQueryParams({ where, point, distanceMiles: miles, returnGeometry: false }, 0, 1);
+  delete p.resultOffset;
+  delete p.resultRecordCount;
+  p.returnCountOnly = "true";
+  const body = await getJson(`${LAYERS[layer].url}/query`, p);
+  if (typeof body.count !== "number") throw new GisError("BAD_RESPONSE", "The City GIS service returned no count.", LAYERS[layer].url);
+  return body.count;
+}
+
 function buildQueryParams(q: QueryParams, offset: number, pageSize: number): Record<string, string> {
   const p: Record<string, string> = {
     f: "json",

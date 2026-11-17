@@ -26,7 +26,8 @@ export type MapKind =
   | "road-project"
   | "traffic-closure"
   | "speed-segment"
-  | "school-zone";
+  | "school-zone"
+  | "search-area";
 
 export interface MapFeatureProps {
   kind: MapKind;
@@ -65,6 +66,8 @@ export interface ToolSuccess {
   limitations: string[];
   sources: SourceRef[];
   map: MapFeatureCollection;
+  /** Optional rendered image; the MCP layer sends it as `image` content, not in structuredContent. */
+  image?: { data: string; mimeType: string };
 }
 
 export interface ToolFailure {

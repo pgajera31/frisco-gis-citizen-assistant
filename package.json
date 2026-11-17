@@ -14,10 +14,12 @@
   },
   "scripts": {
     "build": "npm run build -w packages/mcp-server && npm run build -w apps/backend && npm run build -w apps/web",
+    "pretypecheck": "npm run build -w packages/mcp-server",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev": "node scripts/dev.mjs",
     "start": "npm run start -w apps/backend",
     "mcp": "npm run start -w packages/mcp-server",
+    "pretest": "npm run build -w packages/mcp-server",
     "test": "npm run test --workspaces --if-present",
     "test:live": "LIVE_GIS=1 npm run test --workspaces --if-present",
     "test:e2e": "playwright test --trace off",

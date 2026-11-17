@@ -43,7 +43,7 @@ describe.skipIf(!LIVE)("LIVE pipeline: API → MCP client → MCP server → Arc
 
   it("health shows the MCP server connected with its discovered tools", async () => {
     const res = await request(createApp({ mcp, mode: "offline" })).get("/api/health");
-    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 13, transport: "stdio" });
+    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 16, transport: "stdio" });
   });
 
   describe("Part 1 — offline planner mode, one conversation", () => {
@@ -116,6 +116,22 @@ describe.skipIf(!LIVE)("LIVE pipeline: API → MCP client → MCP server → Arc
       const b = await ask("UC10", "What's the speed limit on Preston Road?");
       expect(b.toolCalls[0]).toMatchObject({ tool: "get_speed_limit", ok: true });
       expect(b.clarification?.options.length).toBeGreaterThan(1);
+    });
+    it("PNG map image of the latest answer (via MCP get_map_image → Esri print service)", async () => {
+      await ask("IMG", "What is the closest park to 6101 Frisco Square Blvd?");
+      const res = await request(app)
+        .post("/api/map-image")
+        .send({ sessionId })
+        .buffer(true)
+        .parse((r, cb) => {
+          const chunks: Buffer[] = [];
+          r.on("data", (c: Buffer) => chunks.push(c));
+          r.on("end", () => cb(null, Buffer.concat(chunks)));
+        });
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toBe("image/png");
+      expect((res.body as Buffer).subarray(1, 4).toString()).toBe("PNG");
+      expect((res.body as Buffer).length).toBeGreaterThan(50_000);
     });
     it("NEG invalid address", async () => {
       const b = await ask("NEG1", "What is the zoning at 99999 Nonexistent Imaginary Ln?");

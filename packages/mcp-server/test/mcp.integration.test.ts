@@ -71,9 +71,9 @@ describe("MCP protocol (stdio)", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
-        "describe_data_sources", "find_nearby_trails", "find_nearest_parks", "find_parks_within_radius", "find_road_projects",
-        "find_road_projects_near", "find_traffic_closures", "geocode_address", "get_park_details", "get_speed_limit",
-        "lookup_zoning", "search_parks_by_amenity", "search_trails",
+        "count_features_within_radius", "describe_data_sources", "find_nearby_trails", "find_nearest_parks", "find_parks_within_radius",
+        "find_road_projects", "find_road_projects_near", "find_traffic_closures", "geocode_address", "get_map_image", "get_park_details",
+        "get_speed_limit", "lookup_zoning", "search_gis_catalog", "search_parks_by_amenity", "search_trails",
       ].sort(),
     );
     for (const t of tools) {
@@ -93,6 +93,12 @@ describe("MCP protocol (stdio)", () => {
     expect((await client.callTool({ name: "lookup_zoning", arguments: { address: 12345 } })).isError).toBe(true);
     expect((await client.callTool({ name: "lookup_zoning", arguments: { address: "x".repeat(500) } })).isError).toBe(true);
     expect((await client.callTool({ name: "find_road_projects", arguments: { statuses: ["Demolished"] } })).isError).toBe(true);
+  });
+
+  it("rejects malformed map-image highlights and unknown countable layers", async () => {
+    const bad = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-96.8, 33.1] }, properties: { kind: "<script>", id: "x", label: "x" } }] };
+    expect((await client.callTool({ name: "get_map_image", arguments: { highlight: bad } })).isError).toBe(true);
+    expect((await client.callTool({ name: "count_features_within_radius", arguments: { address: "6101 Frisco Square Blvd", layer: "secret_layer", radius_miles: 1 } })).isError).toBe(true);
   });
 
   it("returns a structured, user-safe error when no location is given", async () => {
@@ -254,6 +260,37 @@ describe.skipIf(!LIVE)("LIVE GIS use cases via MCP", () => {
     record("UC10b", "What's the speed limit on Preston Road near 8750 Preston Rd?", "get_speed_limit", args, s);
     expect(s.ok).toBe(true);
     expect(s.summary).toMatch(/\d+ mph/);
+  });
+
+  it("TOOL search_gis_catalog finds the City's public construction maps", async () => {
+    const args = { query: "construction" };
+    const { s } = await call("search_gis_catalog", args);
+    record("CAT1", "What maps does the City publish about construction?", "search_gis_catalog", args, s);
+    expect(s.ok).toBe(true);
+    expect(s.count).toBeGreaterThan(0);
+    for (const r of s.results!) expect(String(r.itemPage)).toMatch(/^https:\/\/www\.arcgis\.com\/home\/item\.html\?id=/);
+  });
+
+  it("TOOL count_features_within_radius agrees with the geodesic park search", async () => {
+    const args = { address: ADDRESS, layer: "parks", radius_miles: 2 };
+    const { s } = await call("count_features_within_radius", args);
+    record("CNT1", "How many parks are within 2 miles of 6101 Frisco Square Blvd?", "count_features_within_radius", args, s);
+    expect(s.ok).toBe(true);
+    const radius = await call("find_parks_within_radius", { address: ADDRESS, radius_miles: 2 });
+    expect(s.results![0].count).toBe(radius.s.count); // server buffer == local geodesic (future sites excluded in both)
+  });
+
+  it("TOOL get_map_image renders a PNG through the print GP service and returns it as MCP image content", async () => {
+    const parks = await call("find_nearest_parks", { address: ADDRESS, limit: 3 });
+    const args = { highlight: parks.s.map, overlay_layers: ["trails"], include_image_data: true };
+    const { res, s } = await call("get_map_image", args);
+    record("IMG1", "Map image of the nearest-park result", "get_map_image", { highlight: `${parks.s.map!.features.length} features`, overlay_layers: ["trails"] }, s);
+    expect(s.ok).toBe(true);
+    expect(String(s.results![0].imageUrl)).toMatch(/^https:\/\/utility\.arcgisonline\.com\//);
+    const img = (res.content as { type: string; data?: string; mimeType?: string }[]).find((c) => c.type === "image");
+    expect(img?.mimeType).toBe("image/png");
+    expect(Buffer.from(img!.data!, "base64").subarray(1, 4).toString()).toBe("PNG");
+    expect(JSON.stringify(res.structuredContent)).not.toContain(img!.data!.slice(0, 50)); // image not duplicated in structured data
   });
 
   it("invalid address returns a clear, non-fabricated failure", async () => {

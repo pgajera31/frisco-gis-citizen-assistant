@@ -176,6 +176,11 @@ export const APPROVED_SERVICE_PREFIXES: readonly string[] = [
   `${CITY}/`,
   "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/",
   "https://geocoding.geo.census.gov/geocoder/",
+  // ArcGIS Online item search (queries are always restricted to owner:FriscoTexas, public items).
+  "https://www.arcgis.com/sharing/rest/search",
+  // Esri's public printing service (Export Web Map GP task) and its output directory, for static map images.
+  "https://utility.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/",
+  "https://utility.arcgisonline.com/arcgis/rest/directories/arcgisoutput/",
 ];
 
 /** Human-facing link for a layer (the REST endpoint itself is browsable). */

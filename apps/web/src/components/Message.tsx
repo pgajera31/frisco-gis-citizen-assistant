@@ -1,4 +1,7 @@
+import { useState } from "react";
 import Markdown from "react-markdown";
+import { ApiError, downloadMapImage, saveBlob } from "../api";
+import { hasTables, responseToCsv } from "../csv";
 import type { ChatMessage, MapFeature } from "../types";
 
 const TOOL_NAMES: Record<string, string> = {
@@ -14,6 +17,9 @@ const TOOL_NAMES: Record<string, string> = {
   find_road_projects_near: "Road projects near an address",
   find_traffic_closures: "Traffic closures",
   get_speed_limit: "Speed limit lookup",
+  search_gis_catalog: "City GIS catalog search",
+  count_features_within_radius: "Count within a distance",
+  get_map_image: "Map image rendering",
   describe_data_sources: "Data source catalog",
 };
 
@@ -29,9 +35,59 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onPrefill: (q: string) => void;
+  sessionId?: string;
 }
 
-export default function Message({ message, isLatest, selectedId, onSelect, onPrefill }: Props) {
+function Downloads({ message, isLatest, sessionId }: { message: ChatMessage; isLatest: boolean; sessionId?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const r = message.response!;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const canCsv = hasTables(r);
+  const canPng = isLatest && Boolean(sessionId) && r.map.features.length > 0;
+  if (!canCsv && !canPng) return null;
+  return (
+    <div className="downloads" role="group" aria-label="Download this answer">
+      {canCsv && (
+        <button
+          type="button"
+          className="btn-ghost btn-small"
+          onClick={() => saveBlob(new Blob([responseToCsv(r)], { type: "text/csv;charset=utf-8" }), `frisco-gis-results-${stamp}.csv`)}
+        >
+          Download results (CSV)
+        </button>
+      )}
+      {canPng && (
+        <button
+          type="button"
+          className="btn-ghost btn-small"
+          disabled={busy}
+          aria-busy={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              saveBlob(await downloadMapImage(sessionId!), `frisco-gis-map-${stamp}.png`);
+            } catch (err) {
+              setError(err instanceof ApiError ? err.message : "The map image could not be created.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Rendering map image…" : "Download map image (PNG)"}
+        </button>
+      )}
+      {error && (
+        <span className="download-error" role="alert">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function Message({ message, isLatest, selectedId, onSelect, onPrefill, sessionId }: Props) {
   if (message.role === "user") {
     return (
       <li className="msg msg-user">
@@ -49,7 +105,9 @@ export default function Message({ message, isLatest, selectedId, onSelect, onPre
     );
   }
   const r = message.response;
-  const selectable = (r?.map.features ?? []).filter((f: MapFeature) => f.properties.kind !== "search-location" && f.properties.kind !== "amenity" && f.properties.kind !== "school-zone");
+  const selectable = (r?.map.features ?? []).filter(
+    (f: MapFeature) => !["search-location", "amenity", "school-zone", "search-area"].includes(f.properties.kind),
+  );
   // One chip per label (a trail or road can have many segments).
   const chips: MapFeature[] = [];
   const seen = new Set<string>();
@@ -85,6 +143,8 @@ export default function Message({ message, isLatest, selectedId, onSelect, onPre
           ))}
         </div>
       )}
+
+      {r && <Downloads message={message} isLatest={isLatest} sessionId={sessionId} />}
 
       {chips.length > 0 && isLatest && (
         <div className="result-chips" role="group" aria-label="Show a result on the map">

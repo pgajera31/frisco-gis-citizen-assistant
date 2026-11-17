@@ -18,6 +18,8 @@ export interface GisToolResult {
   map?: { type: "FeatureCollection"; features: unknown[] };
   error?: { code: string; message: string };
   suggestions?: string[];
+  /** Image content returned alongside the structured result (get_map_image). */
+  image?: { data: string; mimeType: string };
 }
 
 /**
@@ -108,7 +110,12 @@ export class GisMcpClient {
     try {
       const res = await client.callTool({ name, arguments: args }, undefined, { timeout: config.mcpCallTimeoutMs });
       const structured = res.structuredContent as GisToolResult | undefined;
-      if (structured && typeof structured.ok === "boolean") return structured;
+      if (structured && typeof structured.ok === "boolean") {
+        const img = Array.isArray(res.content)
+          ? (res.content as { type: string; data?: string; mimeType?: string }[]).find((c) => c.type === "image" && c.data && c.mimeType)
+          : undefined;
+        return img ? { ...structured, image: { data: img.data!, mimeType: img.mimeType! } } : structured;
+      }
       // Input-validation failures from the SDK come back as isError text content without structuredContent.
       const text = Array.isArray(res.content)
         ? res.content.map((c) => (c && typeof c === "object" && "text" in c ? String(c.text) : "")).join(" ")

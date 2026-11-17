@@ -101,6 +101,24 @@ function extractStreet(text: string): { street?: string; near?: string } {
   return { street, near: m[2] ? extractAddress(m[2]) ?? m[2].trim() : undefined };
 }
 
+const CATALOG_STOPWORDS = new Set([
+  "what", "which", "list", "find", "show", "are", "there", "does", "the", "city", "frisco", "publish", "published", "have", "has",
+  "any", "about", "for", "with", "you", "maps", "map", "apps", "app", "application", "applications", "dashboards", "dashboard",
+  "datasets", "dataset", "data", "sets", "set", "story", "storymaps", "storymap", "web", "available", "gis", "online", "public", "and", "of",
+]);
+
+/** Words in a "how many …" question → countable layer key (most specific first). */
+const COUNT_LAYER_WORDS: [RegExp, string][] = [
+  [/\b(park )?amenit(y|ies)\b/, "parkAmenities"],
+  [/\bparks?\b/, "parks"],
+  [/\btrails?\b/, "trails"],
+  [/\b(road |capital |construction )?projects?\b|\bcip\b/, "activeCip"],
+  [/\bclosures?\b/, "trafficClosures"],
+  [/\bschool zones?\b/, "schoolZones"],
+  [/\b(addresses|homes|houses|address points)\b/, "addressPoints"],
+  [/\b(parcels?|lots|properties)\b/, "parcels"],
+];
+
 const FOLLOW_UP_RE = /\b(those|these|them|ones|that list|of the(?:se|m))\b/i;
 
 /** Decide which MCP tool (if any) answers the message. Pure function → unit-testable. */
@@ -109,6 +127,38 @@ export function planOffline(text: string, ctx: OfflineContext): Plan {
   const lower = t.toLowerCase();
 
   if (/^(hi|hello|hey|help|what can you do)\b/.test(lower) && t.length < 40) return { kind: "reply", text: HELP, intent: "help" };
+
+  // Catalog search: "What maps does the City publish about construction?"
+  if (/\b(maps?|apps?|applications?|dashboards?|datasets?|data sets?|story ?maps?|web maps?)\b/.test(lower) && /\b(what|which|list|find|are there|does|do you have|show)\b/.test(lower) && !/\b(speed|zon(e|ed|ing)|closest|nearest|within)\b/.test(lower)) {
+    const topic = lower
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !CATALOG_STOPWORDS.has(w))
+      .join(" ");
+    const itemTypes = [
+      ...(/\bstory ?maps?\b/.test(lower) ? ["StoryMap"] : []),
+      ...(/\bdashboards?\b/.test(lower) ? ["Dashboard"] : []),
+      ...(/\b(apps?|applications?)\b/.test(lower) ? ["Web Experience", "Web Mapping Application"] : []),
+    ];
+    return {
+      kind: "call",
+      intent: "catalog",
+      call: { tool: "search_gis_catalog", args: { query: topic || "frisco", ...(itemTypes.length ? { item_types: itemTypes } : {}) } },
+    };
+  }
+
+  // Buffer/count: "How many parks are within 1 mile of …?"
+  if (/\bhow many\b/.test(lower)) {
+    const layer = COUNT_LAYER_WORDS.find(([re]) => re.test(lower))?.[1];
+    const addr = extractPlace(t);
+    if (layer && addr) {
+      return {
+        kind: "call",
+        intent: "count",
+        call: { tool: "count_features_within_radius", args: { address: addr, layer, radius_miles: Math.min(extractRadius(t) ?? 1, 5) } },
+      };
+    }
+  }
 
   // 10. Speed limits
   if (/\b(speed limit|speed limits|how fast|mph|speed)\b/.test(lower)) {
@@ -275,6 +325,12 @@ export function formatResult(result: GisToolResult): string {
       break;
     case "find_traffic_closures":
       body = list(rows, (r) => `${s(r.description)}${r.timePeriod ? ` — ${s(r.timePeriod)}` : ""}`);
+      break;
+    case "search_gis_catalog":
+      body = list(rows, (r) => `[${s(r.title)}](${s(r.itemPage)}) — ${s(r.type)}${r.lastModified ? `, updated ${s(r.lastModified)}` : ""}`, 10);
+      break;
+    case "get_map_image":
+      body = rows[0] ? `[Open the map image](${s(rows[0].imageUrl)}) (temporary link).` : "";
       break;
     case "get_speed_limit": {
       const z = rows[0];

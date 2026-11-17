@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly live check: detects changes in the City's GIS services (schemas, values, outages).
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck, build, unit/mocked/MCP tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      # No network to City services needed: live tests are skipped without LIVE_GIS=1.
+      - run: npm test
+
+  live:
+    name: Live GIS + browser end-to-end
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # External City/Esri services can have outages; report them without blocking unrelated PRs.
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Live GIS tests (MCP server, backend pipeline)
+        run: npm test
+        env:
+          LIVE_GIS: "1"
+      - name: Browser end-to-end tests
+        run: npm run test:e2e
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            docs/test-results/
+            docs/screenshots/
+            test-results/
+          retention-days: 14

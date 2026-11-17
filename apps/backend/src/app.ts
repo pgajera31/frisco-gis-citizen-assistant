@@ -128,6 +128,7 @@ export function createApp(opts: AppOptions) {
       } else {
         result = await runOfflineTurn(opts.mcp, session, parsed.data.message);
       }
+      if (result.map.features.length) session.lastMap = result.map;
       console.error(JSON.stringify({ evt: "chat", mode: result.mode, ms: Date.now() - started, tools: result.toolCalls.map((t) => `${t.tool}:${t.ok ? "ok" : t.errorCode}`), chars: parsed.data.message.length }));
       res.json({ sessionId: session.id, ...result });
     } catch (err) {
@@ -138,6 +139,34 @@ export function createApp(opts: AppOptions) {
       res.status(500).json({ sessionId: session.id, error: { code: "INTERNAL", message: "Something went wrong while answering. Please try again." } });
     } finally {
       busy.delete(session.id);
+    }
+  });
+
+  const MapImageBody = z.object({ sessionId: z.string({ error: "Invalid session." }).max(64, "Invalid session.") });
+  /** Renders the session's latest answer as a PNG via the MCP get_map_image tool (Esri print service). */
+  app.post("/api/map-image", chatLimiter, async (req: Request, res: Response) => {
+    const parsed = MapImageBody.safeParse(req.body);
+    if (!parsed.success) return void res.status(400).json({ error: { code: "INVALID_INPUT", message: "Invalid session." } });
+    const session = getOrCreateSession(parsed.data.sessionId);
+    if (session.id !== parsed.data.sessionId || !session.lastMap?.features.length) {
+      return void res.status(404).json({ error: { code: "NO_MAP", message: "Ask a question with map results first." } });
+    }
+    try {
+      const result = await opts.mcp.callTool("get_map_image", { highlight: session.lastMap, include_image_data: true });
+      if (!result.ok || !result.image || result.image.mimeType !== "image/png") {
+        return void res.status(502).json({ error: { code: "MAP_IMAGE_FAILED", message: result.error?.message ?? "The map image could not be created." } });
+      }
+      const date = new Date().toISOString().slice(0, 10);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Disposition", `attachment; filename="frisco-gis-map-${date}.png"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.send(Buffer.from(result.image.data, "base64"));
+    } catch (err) {
+      if (err instanceof McpUnavailableError) {
+        return void res.status(503).json({ error: { code: "MCP_UNAVAILABLE", message: "The GIS lookup service is temporarily unavailable." } });
+      }
+      console.error("[map-image] unexpected error", err);
+      res.status(500).json({ error: { code: "INTERNAL", message: "The map image could not be created." } });
     }
   });
 

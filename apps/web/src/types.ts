@@ -11,7 +11,8 @@ export type MapKind =
   | "road-project"
   | "traffic-closure"
   | "speed-segment"
-  | "school-zone";
+  | "school-zone"
+  | "search-area";
 
 export interface MapFeatureProps {
   kind: MapKind;
@@ -51,6 +52,7 @@ export interface ChatResponse {
   methods: string[];
   limitations: string[];
   clarification?: { reason: string; options: string[] };
+  tables?: { tool: string; rows: Record<string, unknown>[] }[];
 }
 
 export interface ChatMessage {

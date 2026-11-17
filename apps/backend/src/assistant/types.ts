@@ -28,6 +28,8 @@ export interface ChatTurnResult {
   methods: string[];
   limitations: string[];
   clarification?: { reason: string; options: string[] };
+  /** Tabular results per successful tool call (for CSV export in the UI). */
+  tables: { tool: string; rows: Record<string, unknown>[] }[];
 }
 
 /** Accumulates tool results over one user turn. */
@@ -77,6 +79,7 @@ export class TurnCollector {
       methods: [...new Set(ok.map((r) => r.method).filter((m): m is string => Boolean(m)))],
       limitations: [...new Set(ok.flatMap((r) => r.limitations ?? []))],
       ...(clarification ? { clarification } : {}),
+      tables: ok.filter((r) => (r.results ?? []).length > 0).map((r) => ({ tool: r.tool, rows: (r.results ?? []).slice(0, 500) })),
     };
   }
 }

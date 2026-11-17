@@ -214,6 +214,7 @@ export default function App() {
                   message={m}
                   isLatest={i === lastAssistantIndex}
                   selectedId={selectedId}
+                  sessionId={sessionId}
                   onSelect={selectOnMap}
                   onPrefill={(t) => {
                     setInput(t);

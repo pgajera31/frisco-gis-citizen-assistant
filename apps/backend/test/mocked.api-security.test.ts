@@ -8,7 +8,7 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { McpUnavailableError } from "../src/mcp/client.js";
-import { FakeMcp, msg, ScriptedModel, text } from "./helpers.js";
+import { defaultResult, FakeMcp, msg, ScriptedModel, text } from "./helpers.js";
 
 const offlineApp = (mcp = new FakeMcp(), rateLimitPerMinute = 100) => createApp({ mcp: mcp.asClient(), mode: "offline", rateLimitPerMinute });
 
@@ -149,3 +149,40 @@ describe("prompt injection & credential exposure", () => {
     }
   });
 });
+
+describe("downloads", () => {
+  it("returns result tables for CSV export", async () => {
+    const res = await request(offlineApp()).post("/api/chat").send({ message: "What is the closest park to 6101 Frisco Square Blvd?" });
+    expect(res.body.tables).toEqual([{ tool: "find_nearest_parks", rows: [{ parkId: 7, name: "Test Park", distanceToBoundaryMiles: 0.1 }] }]);
+  });
+
+  it("renders the session's latest map through the MCP get_map_image tool", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 9]);
+    const mcp = new FakeMcp((name, args) =>
+      name === "get_map_image"
+        ? { ok: true, tool: name, results: [], image: { data: png.toString("base64"), mimeType: "image/png" }, args } as never
+        : defaultResult(name),
+    );
+    const app = offlineApp(mcp);
+    const chat = await request(app).post("/api/chat").send({ message: "What is the closest park to 6101 Frisco Square Blvd?" });
+    const img = await request(app).post("/api/map-image").send({ sessionId: chat.body.sessionId }).buffer(true).parse((r, cb) => {
+      const chunks: Buffer[] = [];
+      r.on("data", (c: Buffer) => chunks.push(c));
+      r.on("end", () => cb(null, Buffer.concat(chunks)));
+    });
+    expect(img.status).toBe(200);
+    expect(img.headers["content-type"]).toBe("image/png");
+    expect(img.headers["content-disposition"]).toMatch(/attachment; filename="frisco-gis-map-/);
+    expect(img.body).toEqual(png);
+    const call = mcp.calls.find((c) => c.name === "get_map_image")!;
+    expect(call.args.include_image_data).toBe(true);
+    expect((call.args.highlight as { features: unknown[] }).features).toHaveLength(1);
+  });
+
+  it("refuses a map image before any answer, or for an unknown session", async () => {
+    const app = offlineApp();
+    expect((await request(app).post("/api/map-image").send({ sessionId: "00000000-0000-4000-8000-000000000000" })).status).toBe(404);
+    expect((await request(app).post("/api/map-image").send({})).status).toBe(400);
+  });
+});
+

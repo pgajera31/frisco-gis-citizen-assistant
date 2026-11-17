@@ -93,6 +93,24 @@ test("UC5 zoning, UC7 walking loops, UC8 construction, UC10 speed limit", async 
   await snap(page, "07-speed-limit.png");
 });
 
+test("downloads: results as CSV and the map as a PNG image", async ({ page }) => {
+  const answer = await ask(page, "What is the closest park to 6101 Frisco Square Blvd?");
+  const [csv] = await Promise.all([page.waitForEvent("download"), answer.getByRole("button", { name: "Download results (CSV)" }).click()]);
+  expect(csv.suggestedFilename()).toMatch(/^frisco-gis-results-\d{4}-\d{2}-\d{2}\.csv$/);
+  const text = (await (await import("node:fs/promises")).readFile(await csv.path())).toString("utf8");
+  expect(text).toContain("Simpson Plaza");
+  expect(text).toContain("data_sources");
+
+  const [png] = await Promise.all([
+    page.waitForEvent("download", { timeout: 90_000 }),
+    answer.getByRole("button", { name: "Download map image (PNG)" }).click(),
+  ]);
+  expect(png.suggestedFilename()).toMatch(/^frisco-gis-map-.*\.png$/);
+  const bytes = await (await import("node:fs/promises")).readFile(await png.path());
+  expect(bytes.subarray(1, 4).toString()).toBe("PNG");
+  await (await import("node:fs/promises")).writeFile(`${shots}/12-downloaded-map-image.png`, bytes);
+});
+
 test("invalid address shows a clear message, not a fabricated answer", async ({ page }) => {
   const a = await ask(page, "What is the closest park to 99999 Nonexistent Imaginary Ln?");
   await expect(a).toContainText("couldn't find");

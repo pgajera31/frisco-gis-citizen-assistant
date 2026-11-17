@@ -48,6 +48,8 @@ export function featureStyle(p: MapFeatureProps, selected: boolean): PathOptions
       return { color: mphColor(Number(p.styleValue) || 0), weight: 5 + weightBoost, opacity: 0.9 };
     case "school-zone":
       return { color: "#fab005", weight: 9 + weightBoost, opacity: 0.6 };
+    case "search-area":
+      return { color: "#1565b0", weight: 2 + weightBoost, dashArray: "6 6", fillColor: "#1565b0", fillOpacity: 0.08 };
     default:
       return { color: "#495057", weight: 2 + weightBoost };
   }
@@ -72,6 +74,7 @@ export const KIND_LABELS: Record<MapKind, string> = {
   "traffic-closure": "Traffic closure",
   "speed-segment": "Street segment (speed limit)",
   "school-zone": "School zone",
+  "search-area": "Search area (buffer)",
 };
 
 /** Swatch color for the legend. */
