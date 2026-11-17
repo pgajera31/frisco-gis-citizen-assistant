@@ -3,7 +3,7 @@ import type { LayerKey } from "../arcgis/layers.js";
 import { distanceToGeometryMiles, esriToGeoJSON, roundMiles } from "../geo/geometry.js";
 import {
   emptyMap,
-  geocoderSource,
+  geocoderSources,
   locationFeature,
   mapFeature,
   sourcesFor,
@@ -159,7 +159,7 @@ export async function findRoadProjects(
         ? [`${overdue.length} project(s) marked 'Construction' have an estimated completion quarter that has already passed (${overdue.map((o) => `${o.name}: ${o.estimatedCompletion}`).slice(0, 6).join("; ")}). The City may not have updated their status yet.`]
         : []),
     ],
-    sources: [...(location ? [geocoderSource(location)] : []), ...(await sourcesFor([layer]))],
+    sources: [...(location ? await geocoderSources(location) : []), ...(await sourcesFor([layer]))],
     map,
   };
 }
@@ -212,7 +212,7 @@ export async function findTrafficClosures(args: Partial<LocationInput> & { radiu
     limitations: [
       "Most records in this layer are NTTA (tollway) closures; time periods are free text without a year, so 'Active' depends on the City keeping the Status field current.",
     ],
-    sources: [...(location ? [geocoderSource(location)] : []), ...(await sourcesFor(["trafficClosures"]))],
+    sources: [...(location ? await geocoderSources(location) : []), ...(await sourcesFor(["trafficClosures"]))],
     map,
   };
 }

@@ -9,7 +9,7 @@ import {
 } from "../geo/geometry.js";
 import {
   emptyMap,
-  geocoderSource,
+  geocoderSources,
   locationFeature,
   mapFeature,
   sourcesFor,
@@ -54,6 +54,8 @@ export interface Park {
   website?: string;
   /** Amenities flagged on the park polygon's own attribute fields. */
   attributeAmenities: string[];
+  /** Parks named "… (Future Site)" in the City data are not open yet. */
+  isFutureSite: boolean;
   geometry: Geometry;
 }
 
@@ -62,8 +64,11 @@ export interface AmenityPoint {
   parkNameField?: string;
   amenity: string;
   geometry: Geometry;
-  /** Park polygon this point falls inside (or within 100 ft of), if any. */
-  parkId?: number;
+  /**
+   * Every park polygon this point falls inside (park polygons can overlap, e.g. a disc-golf course
+   * inside a community park). If none contains it, the nearest park within ~100 ft.
+   */
+  parkIds: number[];
 }
 
 const PARK_FIELDS = ["OBJECTID", "ParkName", "Address", "ParkDesc", "Website", "AllAmenities", ...AMENITIES.map((a) => a.field)];
@@ -75,6 +80,7 @@ export async function loadParks(): Promise<Park[]> {
     const geometry = esriToGeoJSON(f.geometry);
     const name = str(f.attributes.ParkName);
     if (!geometry || !name) continue; // skip records without usable geometry or name
+    if (/^select a park/i.test(name)) continue; // UI placeholder record in the source layer
     parks.push({
       id: Number(f.attributes.OBJECTID),
       name,
@@ -82,6 +88,7 @@ export async function loadParks(): Promise<Park[]> {
       description: str(f.attributes.ParkDesc),
       website: str(f.attributes.Website),
       attributeAmenities: AMENITIES.filter((a) => truthyAmenityValue(f.attributes[a.field])).map((a) => a.label),
+      isFutureSite: /\(future site\)/i.test(name),
       geometry,
     });
   }
@@ -99,18 +106,20 @@ export async function loadAmenityPoints(parks: Park[]): Promise<AmenityPoint[]> 
     const amenity = str(f.attributes.Amenity);
     if (!geometry || geometry.type !== "Point" || !amenity || /^none$/i.test(amenity)) continue;
     const [lon, lat] = geometry.coordinates;
-    let parkId: number | undefined = parks.find((p) => pointInGeometry(lon, lat, p.geometry))?.id;
-    if (parkId === undefined) {
+    const parkIds = parks.filter((p) => pointInGeometry(lon, lat, p.geometry)).map((p) => p.id);
+    if (parkIds.length === 0) {
       let best = Infinity;
+      let nearest: number | undefined;
       for (const p of parks) {
         const d = distanceToGeometryMiles(lon, lat, p.geometry);
         if (d < best && d <= AMENITY_SNAP_MILES) {
           best = d;
-          parkId = p.id;
+          nearest = p.id;
         }
       }
+      if (nearest !== undefined) parkIds.push(nearest);
     }
-    out.push({ id: Number(f.attributes.FID), parkNameField: str(f.attributes.Park), amenity, geometry, parkId });
+    out.push({ id: Number(f.attributes.FID), parkNameField: str(f.attributes.Park), amenity, geometry, parkIds });
   }
   return out;
 }
@@ -125,7 +134,7 @@ function evidenceFor(park: Park, amenityLabel: string, points: AmenityPoint[]): 
   return {
     amenity: amenityLabel,
     parkAttribute: park.attributeAmenities.includes(amenityLabel),
-    amenityPoints: points.filter((p) => p.parkId === park.id && norm(p.amenity) === norm(amenityLabel)).length,
+    amenityPoints: points.filter((p) => p.parkIds.includes(park.id) && norm(p.amenity) === norm(amenityLabel)).length,
   };
 }
 
@@ -169,7 +178,7 @@ async function amenityFilter(amenities?: string[]) {
 function amenityMapFeatures(points: AmenityPoint[], parkIds: Set<number>, labels: string[]) {
   const wanted = new Set(labels.map(norm));
   return points
-    .filter((p) => p.parkId !== undefined && parkIds.has(p.parkId) && wanted.has(norm(p.amenity)))
+    .filter((p) => p.parkIds.some((id) => parkIds.has(id)) && wanted.has(norm(p.amenity)))
     .map((p) =>
       mapFeature(p.geometry, { kind: "amenity", id: `amenity-${p.id}`, label: p.amenity, details: p.parkNameField ? [`Park: ${p.parkNameField}`] : [] }),
     );
@@ -177,13 +186,15 @@ function amenityMapFeatures(points: AmenityPoint[], parkIds: Set<number>, labels
 
 /** Use cases 1 & 2: nearest parks and parks within a radius. */
 export async function findParksNear(
-  loc: LocationInput & { radiusMiles?: number; limit?: number; amenities?: string[] },
+  loc: LocationInput & { radiusMiles?: number; limit?: number; amenities?: string[]; includeFutureSites?: boolean },
   tool: string,
 ): Promise<ToolSuccess> {
   const required = await amenityFilter(loc.amenities);
   const location = await resolveLocation(loc);
-  const parks = await loadParks();
-  const points = required.length ? await loadAmenityPoints(parks) : [];
+  const allParks = await loadParks();
+  const parks = loc.includeFutureSites ? allParks : allParks.filter((p) => !p.isFutureSite);
+  const futureExcluded = allParks.length - parks.length;
+  const points = required.length ? await loadAmenityPoints(allParks) : [];
 
   let ranked = parks
     .map((p) => ({
@@ -256,9 +267,10 @@ export async function findParksNear(
         : ""),
     limitations: [
       ...PARK_LIMITATIONS,
+      ...(futureExcluded ? [`${futureExcluded} future park sites (not yet open) were left out.`] : []),
       ...(location.inFriscoCityLimits === false ? ["The searched location appears to be outside Frisco city limits."] : []),
     ],
-    sources: [geocoderSource(location), ...(await sourcesFor(required.length ? ["parks", "parkAmenities"] : ["parks"]))],
+    sources: [...(await geocoderSources(location)), ...(await sourcesFor(required.length ? ["parks", "parkAmenities"] : ["parks"]))],
     map,
   };
 }
@@ -269,13 +281,15 @@ export async function searchParksByAmenity(args: {
   match?: "all" | "any";
   restrictToParkIds?: number[];
   restrictToParkNames?: string[];
+  includeFutureSites?: boolean;
 }): Promise<ToolSuccess> {
   const tool = "search_parks_by_amenity";
   const required = normalizeAmenities(args.amenities);
   if (required.length === 0) throw new UserFacingError("AMENITY_REQUIRED", "Please name at least one park amenity.");
   const match = args.match ?? "all";
-  const parks = await loadParks();
-  const points = await loadAmenityPoints(parks);
+  const allParks = await loadParks();
+  const points = await loadAmenityPoints(allParks);
+  const parks = args.includeFutureSites ? allParks : allParks.filter((p) => !p.isFutureSite);
 
   let pool = parks;
   const restricted = Boolean(args.restrictToParkIds?.length || args.restrictToParkNames?.length);
@@ -348,7 +362,7 @@ export async function getParkDetails(args: { parkName: string }): Promise<ToolSu
   const map = emptyMap();
   for (const p of top) {
     map.features.push(mapFeature(p.geometry, { kind: "park", id: `park-${p.id}`, label: p.name, details: parkPopup(p) }));
-    for (const a of points.filter((x) => x.parkId === p.id)) {
+    for (const a of points.filter((x) => x.parkIds.includes(p.id))) {
       map.features.push(mapFeature(a.geometry, { kind: "amenity", id: `amenity-${a.id}`, label: a.amenity, details: [`Park: ${p.name}`] }));
     }
   }
@@ -363,7 +377,8 @@ export async function getParkDetails(args: { parkName: string }): Promise<ToolSu
     results: top.map((p) => ({
       ...parkSummary(p),
       description: p.description ?? null,
-      mappedAmenityPoints: [...new Set(points.filter((x) => x.parkId === p.id).map((x) => x.amenity))],
+      mappedAmenityPoints: [...new Set(points.filter((x) => x.parkIds.includes(p.id)).map((x) => x.amenity))],
+      isFutureSite: p.isFutureSite,
     })),
     ...(matches.length > 1 ? { needsClarification: { reason: "Several parks match that name.", options: top.map((p) => p.name) } } : {}),
     method: "Park names were matched case-insensitively against the ParkName field.",

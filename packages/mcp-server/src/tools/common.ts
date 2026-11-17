@@ -116,6 +116,12 @@ export async function sourcesFor(keys: LayerKey[]): Promise<SourceRef[]> {
   );
 }
 
+/** Citation for whichever geocoder resolved the location (with last-edit date for City address points). */
+export async function geocoderSources(loc: GeocodedLocation): Promise<SourceRef[]> {
+  if (loc.source === "City of Frisco Address Points") return sourcesFor(["addressPoints"]);
+  return [geocoderSource(loc)];
+}
+
 export function geocoderSource(loc: GeocodedLocation): SourceRef {
   const retrievedAt = new Date().toISOString();
   switch (loc.source) {

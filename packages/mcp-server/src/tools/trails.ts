@@ -3,7 +3,7 @@ import { queryLayerCached } from "../arcgis/client.js";
 import { distanceToGeometryMiles, esriToGeoJSON, lineLengthMiles, roundMiles } from "../geo/geometry.js";
 import {
   emptyMap,
-  geocoderSource,
+  geocoderSources,
   locationFeature,
   mapFeature,
   sourcesFor,
@@ -167,7 +167,7 @@ export async function findTrailsNear(
         ? [`${bikeOnlyExcluded} on-street "Bike Only" route(s) nearby were left out; ask for bike routes to include them.`]
         : []),
     ],
-    sources: [geocoderSource(location), ...(await sourcesFor(["trails"]))],
+    sources: [...(await geocoderSources(location)), ...(await sourcesFor(["trails"]))],
     map,
   };
 }

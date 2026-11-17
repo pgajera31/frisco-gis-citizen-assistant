@@ -4,7 +4,7 @@ import { parseStreetName } from "../geo/address.js";
 import { distanceToGeometryMiles, esriToGeoJSON, lineLengthMiles, roundMiles } from "../geo/geometry.js";
 import {
   emptyMap,
-  geocoderSource,
+  geocoderSources,
   locationFeature,
   mapFeature,
   sourcesFor,
@@ -226,7 +226,7 @@ export async function getSpeedLimit(args: { streetName: string; nearAddress?: st
       ...(schoolZones.length ? ["School zones have lower limits during posted times."] : []),
       ...(unknown ? [`${unknown} segment(s) have no speed limit recorded.`] : []),
     ],
-    sources: [...(location ? [geocoderSource(location)] : []), ...(await sourcesFor([layer, ...(schoolZones.length ? (["schoolZones"] as const) : [])]))],
+    sources: [...(location ? await geocoderSources(location) : []), ...(await sourcesFor([layer, ...(schoolZones.length ? (["schoolZones"] as const) : [])]))],
     map,
   };
 }

@@ -99,10 +99,13 @@ test("invalid address shows a clear message, not a fabricated answer", async ({ 
 });
 
 test("keyboard only: skip link, typing and Enter to send", async ({ page }) => {
-  // Headless Chromium spends the first Tab moving focus from browser chrome into the page.
-  await page.keyboard.press("Tab");
-  if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press("Tab");
-  // The skip link is the first focusable element on the page.
+  // Start from a known state, then Tab until focus enters the document (headless Chromium may
+  // spend one or more Tabs on browser chrome). The first element reached must be the skip link.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Tab");
+    if (await page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)) break;
+  }
   await expect(page.getByRole("link", { name: "Skip to the question box" })).toBeFocused();
   await page.keyboard.press("Enter");
   await page.locator("#question").focus();

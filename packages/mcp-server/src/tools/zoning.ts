@@ -2,7 +2,7 @@ import { queryLayer } from "../arcgis/client.js";
 import { esriToGeoJSON } from "../geo/geometry.js";
 import {
   emptyMap,
-  geocoderSource,
+  geocoderSources,
   locationFeature,
   mapFeature,
   type SourceRef,
@@ -73,7 +73,7 @@ export async function lookupZoning(input: LocationInput): Promise<ToolSuccess> {
       results: [],
       method: "Point-in-polygon test of the address location against the City's zoning polygons.",
       limitations: [...limitations, ...(location.inFriscoCityLimits === false ? ["The location appears to be outside Frisco city limits."] : [])],
-      sources: [geocoderSource(location), ...(await sourcesFor(["zoningCity", "zoningOdh"]))],
+      sources: [...(await geocoderSources(location)), ...(await sourcesFor(["zoningCity", "zoningOdh"]))],
       map,
     };
   }
@@ -147,7 +147,7 @@ export async function lookupZoning(input: LocationInput): Promise<ToolSuccess> {
     }
   }
 
-  const sources: SourceRef[] = [geocoderSource(location), ...(await sourcesFor(usedLayers))];
+  const sources: SourceRef[] = [...(await geocoderSources(location)), ...(await sourcesFor(usedLayers))];
   const pdText = pd ? `, within Planned Development ${pd}` : "";
   return {
     ok: true,

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { LAYERS } from "./arcgis/layers.js";
-import { geocoderSource, locationFeature, toFailure, type ToolResult, UserFacingError } from "./tools/common.js";
+import { geocoderSources, locationFeature, toFailure, type ToolResult, UserFacingError } from "./tools/common.js";
 import { describeDataSources } from "./tools/catalog.js";
 import { geocode } from "./tools/geocode.js";
 import { AMENITY_LABELS, findParksNear, getParkDetails, searchParksByAmenity } from "./tools/parks.js";
@@ -111,7 +111,7 @@ export function createServer(): McpServer {
         results: [best, ...alternatives].map((c) => ({ ...c })),
         method: "Geocoder priority: City address points → Esri World Geocoder → U.S. Census geocoder.",
         limitations: [],
-        sources: [geocoderSource(best)],
+        sources: await geocoderSources(best),
         map: { type: "FeatureCollection", features: [locationFeature(best)] },
       };
     }),
@@ -129,13 +129,14 @@ export function createServer(): McpServer {
         longitude: longitude.optional(),
         limit: z.number().int().min(1).max(10).default(3).describe("How many parks to return (default 3)."),
         amenities: amenityList.optional(),
+        include_future_sites: z.boolean().default(false).describe("Include parks the City lists as '(Future Site)' (not yet open)."),
       },
       outputSchema,
       annotations: READ_ONLY,
     },
-    wrap("find_nearest_parks", async (a: { address?: string; latitude?: number; longitude?: number; limit?: number; amenities?: string[] }) => {
+    wrap("find_nearest_parks", async (a: { address?: string; latitude?: number; longitude?: number; limit?: number; amenities?: string[]; include_future_sites?: boolean }) => {
       needLocation(a);
-      return findParksNear(a, "find_nearest_parks");
+      return findParksNear({ ...a, includeFutureSites: a.include_future_sites }, "find_nearest_parks");
     }),
   );
 
@@ -150,13 +151,14 @@ export function createServer(): McpServer {
         longitude: longitude.optional(),
         radius_miles: z.number().min(0.1).max(10).describe("Search radius in miles (0.1–10)."),
         amenities: amenityList.optional(),
+        include_future_sites: z.boolean().default(false).describe("Include parks the City lists as '(Future Site)' (not yet open)."),
       },
       outputSchema,
       annotations: READ_ONLY,
     },
-    wrap("find_parks_within_radius", async (a: { address?: string; latitude?: number; longitude?: number; radius_miles: number; amenities?: string[] }) => {
+    wrap("find_parks_within_radius", async (a: { address?: string; latitude?: number; longitude?: number; radius_miles: number; amenities?: string[]; include_future_sites?: boolean }) => {
       needLocation(a);
-      return findParksNear({ ...a, radiusMiles: a.radius_miles }, "find_parks_within_radius");
+      return findParksNear({ ...a, radiusMiles: a.radius_miles, includeFutureSites: a.include_future_sites }, "find_parks_within_radius");
     }),
   );
 

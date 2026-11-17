@@ -218,4 +218,28 @@ describe("tool logic with fixture data", () => {
     expect(r.results[0].amenityEvidence).toEqual([{ amenity: "Basketball", parkAttribute: false, amenityPoints: 1 }]);
     expect(r.limitations.join(" ")).toMatch(/not listed on the park record/);
   });
+
+  it("assigns an amenity point to every overlapping park polygon and skips future/placeholder parks", async () => {
+    const big = { rings: [[[-96.84, 33.14], [-96.84, 33.17], [-96.81, 33.17], [-96.81, 33.14], [-96.84, 33.14]]] };
+    const inner = { rings: [[[-96.83, 33.15], [-96.83, 33.16], [-96.82, 33.16], [-96.82, 33.15], [-96.83, 33.15]]] };
+    const far = { rings: [[[-96.70, 33.20], [-96.70, 33.21], [-96.69, 33.21], [-96.69, 33.20], [-96.70, 33.20]]] };
+    setFetchImplementation(async (u) => {
+      if (u.includes("ParkApp_Testing/FeatureServer/0/query")) {
+        return json({
+          features: [
+            { attributes: { OBJECTID: 1, ParkName: "Community Park" }, geometry: big },
+            { attributes: { OBJECTID: 2, ParkName: "Disc Golf Course" }, geometry: inner },
+            { attributes: { OBJECTID: 3, ParkName: "Someday Park (Future Site)", DiscGolf: "Disc Golf" }, geometry: far },
+            { attributes: { OBJECTID: 4, ParkName: "Select a Park for More Info", DiscGolf: "Disc Golf" }, geometry: far },
+          ],
+        });
+      }
+      if (u.includes("ParkAmenities_Test/FeatureServer/0/query")) {
+        return json({ features: [{ attributes: { FID: 9, Park: "Community Park", Amenity: "Disc Golf" }, geometry: { x: -96.825, y: 33.155 } }] });
+      }
+      return json({ features: [] });
+    });
+    const r = await searchParksByAmenity({ amenities: ["disc golf"] });
+    expect(r.results.map((x) => x.name).sort()).toEqual(["Community Park", "Disc Golf Course"]);
+  });
 });
