@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "frisco-gis": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/frisco-gis-citizen-assistant/packages/mcp-server/dist/index.js"]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "frisco-gis-citizen-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "University capstone prototype: an MCP-based conversational assistant for City of Frisco public GIS data.",
+  "type": "module",
+  "workspaces": [
+    "packages/mcp-server",
+    "apps/backend",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "npm run build -w packages/mcp-server && npm run build -w apps/backend && npm run build -w apps/web",
+    "pretypecheck": "npm run build -w packages/mcp-server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "predev": "npm run build -w packages/mcp-server",
+    "dev": "node scripts/dev.mjs",
+    "start": "npm run start -w apps/backend",
+    "mcp": "npm run start -w packages/mcp-server",
+    "pretest": "npm run build -w packages/mcp-server",
+    "test": "npm run test --workspaces --if-present",
+    "test:live": "LIVE_GIS=1 npm run test --workspaces --if-present",
+    "test:e2e": "playwright test --trace off",
+    "inventory": "tsx scripts/gis-discovery.ts",
+    "benchmark": "tsx scripts/scenario-benchmark.ts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
