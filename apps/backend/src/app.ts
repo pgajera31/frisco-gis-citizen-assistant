@@ -19,9 +19,9 @@ export interface AppOptions {
 }
 
 const ChatBody = z.object({
-  sessionId: z.string().max(64).optional(),
+  sessionId: z.string({ error: "Invalid session." }).max(64, "Invalid session.").optional(),
   message: z
-    .string()
+    .string({ error: "Please type a question." })
     .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim())
     .pipe(z.string().min(1, "Please type a question.").max(config.maxMessageChars, `Please keep questions under ${config.maxMessageChars} characters.`)),
 });
