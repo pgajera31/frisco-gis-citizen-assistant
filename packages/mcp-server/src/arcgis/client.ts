@@ -154,6 +154,29 @@ export async function getJson(url: string, params: Record<string, string>): Prom
   throw lastError ?? new GisError("NETWORK", "The City GIS service could not be reached.", url);
 }
 
+/**
+ * Health probe: ONE metadata request with a short timeout and no retries.
+ * Returns ok only for a JSON body without an ArcGIS `error` object.
+ */
+export async function probeService(url: string, timeoutMs = 8000): Promise<{ ok: boolean; ms: number; code?: GisError["code"] }> {
+  assertApprovedUrl(url);
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(`${url}?f=json`, { signal: controller.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) return { ok: false, ms: Date.now() - started, code: "HTTP_ERROR" };
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") return { ok: false, ms: Date.now() - started, code: "BAD_RESPONSE" };
+    if (body.error) return { ok: false, ms: Date.now() - started, code: "ARCGIS_ERROR" };
+    return { ok: true, ms: Date.now() - started };
+  } catch (err) {
+    return { ok: false, ms: Date.now() - started, code: (err as Error)?.name === "AbortError" ? "TIMEOUT" : "NETWORK" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Largest image the server will download from the print service (bytes). */
 const MAX_BINARY_BYTES = 8 * 1024 * 1024;
 

@@ -4,7 +4,7 @@
 
 Residents ask everyday questions such as *"What is the closest park to 6101 Frisco Square Blvd?"*, *"Which of those also have playgrounds?"* or *"What's the speed limit on Preston Road?"*. Each answer comes back in plain English with an interactive map, the City data layers it came from (with last-updated dates), and a short explanation of how it was derived.
 
-All GIS access goes through a genuine **Model Context Protocol (MCP)** server, which exposes 20 validated, read-only tools over the City of Frisco's ArcGIS REST services. These include the proposal's full tool catalog: search content, describe layer, query features, get map image, and buffer/count. The backend connects to it with the official **MCP client**, and a language model (Claude) chooses which tools to call.
+All GIS access goes through a genuine **Model Context Protocol (MCP)** server, which exposes 21 validated, read-only tools over the City of Frisco's ArcGIS REST services. These include the proposal's full tool catalog: search content, describe layer, query features, get map image, and buffer/count. The backend connects to it with the official **MCP client**, and a language model (Claude) chooses which tools to call.
 
 ```
 Citizen → Web UI → Backend API → AI assistant (Claude) → MCP client ⇄(stdio)⇄ MCP server → City ArcGIS REST → answer + map + sources
@@ -62,12 +62,12 @@ Details and evidence: [docs/USE_CASE_FEASIBILITY.md](docs/USE_CASE_FEASIBILITY.m
 ## Repository layout
 
 ```
-packages/mcp-server   MCP server: ArcGIS client, layer registry, geometry, 20 tools, tests
+packages/mcp-server   MCP server: ArcGIS client, layer registry, geometry, 21 tools, tests
 apps/backend          Express API, MCP client, Claude orchestrator, offline planner, tests
 apps/web              React + Leaflet citizen UI
 e2e/                  Playwright browser tests
 .github/workflows/    CI: offline gate on every PR; live GIS + browser tests nightly
-scripts/              gis-discovery.ts (data inventory evidence), dev.mjs (dev launcher)
+scripts/              gis-discovery.ts (data inventory evidence), scenario-benchmark.ts (accuracy and time-to-answer), dev.mjs (dev launcher)
 examples/             Claude Desktop config, MCP-over-HTTP curl example
 docs/                 Architecture, GIS inventory, feasibility, tools, security, test report, screenshots
 ```
@@ -137,7 +137,7 @@ npm run start -w apps/backend                     # backend API (launches its ow
 npm run dev -w apps/web                           # web UI dev server
 ```
 
-Health check: `curl http://localhost:8787/api/health` returns `{"status":"ok","mode":"offline|ai","mcp":{"connected":true,"toolCount":20,"transport":"stdio"}}`.
+Health check: `curl http://localhost:8787/api/health` returns `{"status":"ok","mode":"offline|ai","mcp":{"connected":true,"toolCount":21,"transport":"stdio"}}`.
 
 ## Testing
 
@@ -149,7 +149,9 @@ npm run typecheck             # TypeScript across all workspaces
 npm run inventory             # re-run GIS data discovery → docs/gis-discovery/
 ```
 
-Latest results (2026-11-17): **238 tests passed, 0 failed**, including 35 live-GIS tests and 12 browser tests.
+Latest results (2026-11-17): **248 tests passed, 0 failed**, including 36 live-GIS tests and 14 browser tests.
+
+**Scenario benchmark** (`npm run benchmark`, against a running backend started with `RATE_LIMIT_PER_MINUTE=500`): 31 citizen questions covering all 14 use cases and alternative phrasings, run twice. Accuracy is **62/62** (expected tool *and* the verified key fact in the answer). Time to answer in offline-planner mode, cold caches: **p50 0.20 s, p95 0.94 s**. See [docs/SCENARIO_BENCHMARK.md](docs/SCENARIO_BENCHMARK.md). Re-run it with an API key to measure AI mode.
 
 **Continuous integration** (`.github/workflows/ci.yml`): every pull request runs typecheck, build and the offline suites. A second job runs the live GIS and Playwright suites; it runs nightly and on demand, so changes in the City's services are caught early. See [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
 
@@ -180,6 +182,7 @@ Tool catalog and schemas: [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md). HTTP example: 
 
 | Symptom | Fix |
 |---|---|
+| Yellow banner "Some City data services aren't responding" | `/api/status` probes every City layer (cached 2 min). The named questions may fail until the City service recovers; layers with backups (CIP, speed limits, zoning) switch automatically and don't trigger the banner. |
 | Header shows **"Server offline"** or the GIS service banner | Check that the backend is running (`npm start`) and `curl localhost:8787/api/health`. If `mcp.connected` is false, run `npm run build -w packages/mcp-server` and check the backend log for MCP server errors. |
 | Every question fails with "The City GIS service could not be reached" | Your network blocks the ArcGIS hosts listed in [Installation](#installation). Behind a corporate proxy, set `HTTPS_PROXY` and `NODE_USE_ENV_PROXY=1` (Node ≥ 22.21 / 24) so Node's `fetch` uses the proxy, and `NODE_EXTRA_CA_CERTS` if the proxy re-signs TLS. These variables are forwarded to the MCP server. |
 | Badge says **Offline planner mode** although you set a key | Make sure `.env` is in the repository root and contains `ANTHROPIC_API_KEY`, `ASSISTANT_MODE` is not `offline`, and restart the backend. |
@@ -197,6 +200,7 @@ Tool catalog and schemas: [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md). HTTP example: 
 - [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md): tool catalog and how to add tools
 - [docs/SECURITY.md](docs/SECURITY.md): security and privacy controls and remaining risks
 - [docs/TEST_REPORT.md](docs/TEST_REPORT.md): per-use-case results and category coverage
+- [docs/SCENARIO_BENCHMARK.md](docs/SCENARIO_BENCHMARK.md): accuracy and time-to-answer for 31 citizen questions
 - [docs/LIMITATIONS_AND_ROADMAP.md](docs/LIMITATIONS_AND_ROADMAP.md): known limitations and next steps
 - [docs/gis-discovery/summary.md](docs/gis-discovery/summary.md): auto-generated discovery evidence
 

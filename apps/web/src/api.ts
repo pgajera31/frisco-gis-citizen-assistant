@@ -1,4 +1,4 @@
-import type { ChatResponse, Health } from "./types";
+import type { ChatResponse, DataStatus, Health } from "./types";
 
 export class ApiError extends Error {
   constructor(message: string, public readonly code: string, public readonly status: number) {
@@ -34,6 +34,10 @@ export async function sendChat(message: string, sessionId?: string, signal?: Abo
     throw new ApiError("Couldn't reach the assistant. Check your connection and try again.", "NETWORK", 0);
   }
   return parse<ChatResponse>(res);
+}
+
+export async function getDataStatus(): Promise<DataStatus> {
+  return parse<DataStatus>(await fetch("/api/status"));
 }
 
 export async function getHealth(): Promise<Health> {

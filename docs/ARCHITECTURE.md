@@ -8,7 +8,7 @@ Citizen ─► Web UI (React + Leaflet) ─► Backend API (Express) ─► AI o
                                                                              │ stdio (JSON-RPC)
                                                                              ▼
                                                               MCP server "frisco-gis-mcp"
-                                                              20 read-only GIS tools
+                                                              21 read-only GIS tools
                                                                              │ HTTPS (allow-listed)
                                                                              ▼
                                                  City of Frisco ArcGIS REST services (+ geocoders)
@@ -44,7 +44,7 @@ sequenceDiagram
 
 | Component | Path | Responsibility | Key technology |
 |---|---|---|---|
-| **MCP server** | `packages/mcp-server` | Exposes 20 validated, read-only GIS tools. Owns every ArcGIS request, geocoding, spatial maths, and source citation. | `@modelcontextprotocol/sdk` (McpServer, stdio and Streamable HTTP), zod schemas, Turf.js |
+| **MCP server** | `packages/mcp-server` | Exposes 21 validated, read-only GIS tools. Owns every ArcGIS request, geocoding, spatial maths, and source citation. | `@modelcontextprotocol/sdk` (McpServer, stdio and Streamable HTTP), zod schemas, Turf.js |
 | ArcGIS client | `…/src/arcgis/client.ts` | Endpoint allowlist, HTTPS only, timeouts, retry with backoff, ArcGIS-error-in-200 detection, pagination, caching, SQL-literal escaping | `fetch` |
 | Layer registry | `…/src/arcgis/layers.ts` | The only layers the server may query (URL, title, publisher, notes) | — |
 | Tools | `…/src/tools/*.ts` | Parks, zoning, future land use, school districts, schools, public facilities, trails, road projects, speed limits, geocoding, data-source catalog, City GIS item search, buffer/count, map image | Turf (geodesic distances, point-in-polygon, buffers); Esri Export Web Map GP task for PNG rendering |
@@ -94,6 +94,7 @@ The response also carries `tables` (the result rows of each successful tool, use
 Other endpoints:
 - `GET /api/health`: mode, model, MCP connection and tool count.
 - `GET /api/tools`: the MCP-discovered tool list.
+- `GET /api/status`: per-service health of every City layer, via the MCP `check_data_sources_health` tool (single 8 s probe per layer, cached 2 minutes). It drives the UI banner that names the questions affected by an outage. Layers covered by a working backup are not reported as outages.
 - `POST /api/map-image {sessionId}`: renders the session's **latest answer** as a PNG by calling the MCP `get_map_image` tool. The browser cannot submit geometry; only the server-held result is drawn.
 - `DELETE /api/session/:id`.
 

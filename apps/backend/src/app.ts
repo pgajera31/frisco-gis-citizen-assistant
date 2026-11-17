@@ -90,6 +90,24 @@ export function createApp(opts: AppOptions) {
     });
   });
 
+  /** Per-service health of the City GIS layers (via the MCP check_data_sources_health tool, cached 2 min there). */
+  app.get("/api/status", async (_req, res) => {
+    try {
+      const r = await opts.mcp.callTool("check_data_sources_health", {});
+      if (!r.ok) return void res.status(502).json({ error: { code: "STATUS_UNAVAILABLE", message: "Data service status is unavailable." } });
+      const rows = (r.results ?? []) as { layer: string; status: string; affects?: string }[];
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        summary: r.summary,
+        checkedServices: rows.length,
+        down: rows.filter((x) => x.status === "down").map((x) => ({ layer: x.layer, affects: x.affects })),
+        coveredByBackup: rows.filter((x) => x.status !== "ok" && x.status !== "down").map((x) => x.layer),
+      });
+    } catch {
+      res.status(503).json({ error: { code: "MCP_UNAVAILABLE", message: "The GIS tool server is unavailable." } });
+    }
+  });
+
   app.get("/api/tools", async (_req, res) => {
     try {
       const tools = await opts.mcp.listTools();

@@ -186,3 +186,35 @@ describe("downloads", () => {
   });
 });
 
+describe("data service status", () => {
+  it("maps the MCP health result to down / covered-by-backup lists", async () => {
+    const mcp = new FakeMcp((name) =>
+      name === "check_data_sources_health"
+        ? {
+            ok: true,
+            tool: name,
+            summary: "2 of 19 City data services are not responding",
+            results: [
+              { layer: "Parks", status: "down", affects: "park searches" },
+              { layer: "Active CIP", status: "down (backup in use)" },
+              { layer: "Trails", status: "ok" },
+            ],
+          }
+        : defaultResult(name),
+    );
+    const res = await request(offlineApp(mcp)).get("/api/status");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      summary: "2 of 19 City data services are not responding",
+      checkedServices: 3,
+      down: [{ layer: "Parks", affects: "park searches" }],
+      coveredByBackup: ["Active CIP"],
+    });
+  });
+  it("returns 503 when the MCP server is down", async () => {
+    const mcp = new FakeMcp();
+    mcp.failWith = new McpUnavailableError();
+    expect((await request(offlineApp(mcp)).get("/api/status")).status).toBe(503);
+  });
+});
+

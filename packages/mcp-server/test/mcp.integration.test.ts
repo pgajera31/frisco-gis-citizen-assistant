@@ -71,7 +71,7 @@ describe("MCP protocol (stdio)", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
-        "count_features_within_radius", "describe_data_sources", "find_nearby_facilities", "find_nearby_schools", "find_nearby_trails",
+        "check_data_sources_health", "count_features_within_radius", "describe_data_sources", "find_nearby_facilities", "find_nearby_schools", "find_nearby_trails",
         "find_nearest_parks", "find_parks_within_radius", "find_road_projects", "find_road_projects_near", "find_traffic_closures",
         "geocode_address", "get_map_image", "get_park_details", "get_speed_limit", "lookup_future_land_use", "lookup_school_district",
         "lookup_zoning", "search_gis_catalog", "search_parks_by_amenity", "search_trails",
@@ -301,6 +301,14 @@ describe.skipIf(!LIVE)("LIVE GIS use cases via MCP", () => {
     for (const r of s.results!) expect(r.category).toBe("fire station");
     const lib = await call("find_nearby_facilities", { address: ADDRESS, category: "library" });
     expect(lib.s.results![0].category).toBe("library");
+  });
+
+  it("TOOL check_data_sources_health probes every approved City layer", async () => {
+    const { s } = await call("check_data_sources_health", { fresh: true });
+    record("HLTH", "Are the City data services up?", "check_data_sources_health", { fresh: true }, s);
+    expect(s.ok).toBe(true);
+    expect(s.count).toBe(19);
+    for (const r of s.results!) expect(["ok", "down", "down (backup in use)"]).toContain(r.status);
   });
 
   it("TOOL search_gis_catalog finds the City's public construction maps", async () => {

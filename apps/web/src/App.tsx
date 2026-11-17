@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, getHealth, resetSession, sendChat } from "./api";
+import { ApiError, getDataStatus, getHealth, resetSession, sendChat } from "./api";
 import AboutDialog from "./components/AboutDialog";
 import Message from "./components/Message";
-import type { ChatMessage, Health, MapCollection } from "./types";
+import type { ChatMessage, DataStatus, Health, MapCollection } from "./types";
 
 const MapView = lazy(() => import("./components/MapView"));
 
@@ -65,6 +65,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
   const [healthError, setHealthError] = useState(false);
+  const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"chat" | "map">("chat");
   const [highContrast, setHighContrast] = useState(() => {
@@ -86,6 +87,10 @@ export default function App() {
     getHealth()
       .then((h) => setHealth(h))
       .catch(() => setHealthError(true));
+    // Per-service status; failures here are non-fatal (the MCP banner covers a full outage).
+    getDataStatus()
+      .then(setDataStatus)
+      .catch(() => setDataStatus(null));
   }, []);
 
   useEffect(() => {
@@ -187,6 +192,13 @@ export default function App() {
       {(healthError || (health && !health.mcp.connected)) && (
         <div className="status-banner" role="alert">
           The GIS lookup service is not available right now. Questions may fail until it reconnects.
+        </div>
+      )}
+
+      {dataStatus && dataStatus.down.length > 0 && (
+        <div className="status-banner status-warn" role="status">
+          Some City data services aren't responding right now, so these questions may fail:{" "}
+          {[...new Set(dataStatus.down.map((d) => d.affects ?? d.layer))].join("; ")}. Other questions still work.
         </div>
       )}
 

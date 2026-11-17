@@ -43,7 +43,7 @@ describe.skipIf(!LIVE)("LIVE pipeline: API → MCP client → MCP server → Arc
 
   it("health shows the MCP server connected with its discovered tools", async () => {
     const res = await request(createApp({ mcp, mode: "offline" })).get("/api/health");
-    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 20, transport: "stdio" });
+    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 21, transport: "stdio" });
   });
 
   describe("Part 1 — offline planner mode, one conversation", () => {

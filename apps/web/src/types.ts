@@ -66,6 +66,13 @@ export interface ChatMessage {
   response?: ChatResponse;
 }
 
+export interface DataStatus {
+  summary: string;
+  checkedServices: number;
+  down: { layer: string; affects?: string }[];
+  coveredByBackup: string[];
+}
+
 export interface Health {
   status: "ok" | "degraded";
   mode: "ai" | "offline";

@@ -175,6 +175,12 @@ button {
   font-size: 0.9rem;
 }
 
+.status-warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border-bottom: 1px solid #f0d58c;
+}
+
 .btn-primary {
   background: var(--blue-600);
   color: #fff;

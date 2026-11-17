@@ -24,7 +24,8 @@
     "test": "npm run test --workspaces --if-present",
     "test:live": "LIVE_GIS=1 npm run test --workspaces --if-present",
     "test:e2e": "playwright test --trace off",
-    "inventory": "tsx scripts/gis-discovery.ts"
+    "inventory": "tsx scripts/gis-discovery.ts",
+    "benchmark": "tsx scripts/scenario-benchmark.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

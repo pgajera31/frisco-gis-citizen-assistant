@@ -25,10 +25,10 @@
 
 ## Before production
 
-1. Run and evaluate the AI mode with a real key (accuracy and time-to-answer on the 10 to 15 scenario prompts), and tune the prompt and effort.
+1. Run `npm run benchmark` in AI mode with a real key (the offline baseline is 62/62 accurate, p95 0.94 s), and tune the prompt and effort.
 2. Confirm the data stewards for each layer with City GIS. Promote `ParkApp_Testing` / `ParkAmenities_Test` to named production layers, and fix the stale CIP statuses and park-name spellings.
 3. Use the City's composite geocoder (or a City-hosted locator) to avoid sending addresses to third parties.
-4. Move to shared session and rate-limit storage (Redis), add AI cost budgets, structured logging and monitoring, plus a status banner fed by layer health checks.
+4. Move to shared session and rate-limit storage (Redis), add AI cost budgets, structured logging and monitoring. (A per-service status banner fed by layer health checks already exists; production should also alert staff.)
 5. Add authentication to the HTTP MCP endpoint if it is exposed, and put the API behind a gateway with WAF/bot protection.
 6. Run an accessibility audit with assistive-technology users, a usability study with residents, and a content review of glossary and disclaimers with City Communications.
 7. CI exists (`.github/workflows/ci.yml`: offline gate on PRs, nightly live and browser runs). Next: make the live job a required check once the City confirms service SLAs, and add a nightly `npm run inventory` diff to flag schema changes.

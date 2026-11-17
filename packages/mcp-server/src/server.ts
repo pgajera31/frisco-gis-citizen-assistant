@@ -3,6 +3,7 @@ import { z } from "zod";
 import { LAYERS } from "./arcgis/layers.js";
 import { geocoderSources, locationFeature, toFailure, type ToolResult, UserFacingError } from "./tools/common.js";
 import { describeDataSources } from "./tools/catalog.js";
+import { checkDataSourcesHealth } from "./tools/health.js";
 import { geocode } from "./tools/geocode.js";
 import { AMENITY_LABELS, findParksNear, getParkDetails, searchParksByAmenity } from "./tools/parks.js";
 import { CIP_STATUSES, CIP_TYPES, findRoadProjects, findTrafficClosures } from "./tools/roadProjects.js";
@@ -568,6 +569,18 @@ export function createServer(): McpServer {
       needLocation(a);
       return findNearbyFacilities(a);
     }),
+  );
+
+  server.registerTool(
+    "check_data_sources_health",
+    {
+      title: "Check City data service health",
+      description: "Check whether each City GIS service used by this assistant is responding, and which resident questions are affected if not. Cached for 2 minutes.",
+      inputSchema: { fresh: z.boolean().default(false).describe("Bypass the 2-minute cache.") },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("check_data_sources_health", (a: { fresh?: boolean }) => checkDataSourcesHealth({ fresh: a.fresh })),
   );
 
   return server;

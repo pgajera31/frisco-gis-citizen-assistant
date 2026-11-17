@@ -17,17 +17,18 @@ Raw evidence (committed):
 | `packages/mcp-server/test/mocked.reliability.test.ts` | Mocked (fake fetch) | 26 | 26 | 0 | 0 |
 | `packages/mcp-server/test/mocked.catalog-count-image.test.ts` | Mocked (catalog search, buffer/count, map image) | 11 | 11 | 0 | 0 |
 | `packages/mcp-server/test/mocked.places.test.ts` | Mocked (UC11–14 logic) | 16 | 16 | 0 | 0 |
+| `packages/mcp-server/test/mocked.health.test.ts` | Mocked (service health probes) | 5 | 5 | 0 | 0 |
 | `packages/mcp-server/test/mcp.integration.test.ts` — protocol | MCP integration (real server over stdio) | 8 | 8 | 0 | 0 |
-| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 20 | 20 | 0 | 0 |
+| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 21 | 21 | 0 | 0 |
 | `apps/backend/test/unit.planner.test.ts` | Unit | 62 | 62 | 0 | 0 |
 | `apps/backend/test/mocked.claude-loop.test.ts` | Mocked (scripted model + fake MCP) | 11 | 11 | 0 | 0 |
-| `apps/backend/test/mocked.api-security.test.ts` | Mocked (supertest + fake MCP) | 22 | 22 | 0 | 0 |
+| `apps/backend/test/mocked.api-security.test.ts` | Mocked (supertest + fake MCP) | 24 | 24 | 0 | 0 |
 | `apps/backend/test/live.e2e-pipeline.test.ts` | **Live** HTTP → MCP client → MCP server → ArcGIS (offline + AI-scripted + PNG) | 15 | 15 | 0 | 0 |
 | `apps/web/test/mapStyles.test.ts`, `csv.test.ts` | Unit | 8 | 8 | 0 | 0 |
-| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 12 | 12 | 0 | 0 |
-| **Total** | | **238** | **238** | **0** | **0** |
+| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 14 | 14 | 0 | 0 |
+| **Total** | | **248** | **248** | **0** | **0** |
 
-Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 35 live tests are skipped and everything else runs offline. The same offline run was reproduced from a clean clone with `npm ci` (as CI does).
+Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 36 live tests are skipped and everything else runs offline. The same offline run was reproduced from a clean clone with `npm ci` (as CI does).
 
 ### Defects found by testing and fixed
 | Found by | Defect | Fix |
@@ -48,6 +49,10 @@ Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm
 | Live smoke run (UC14) | "Parks and Recreation – Administration" categorised as recreation | Administration offices categorised as "other" |
 | Planner test | "school zones on Preston Road speed limit" captured "Preston Road speed limit" as the street | Trailing "speed limit"/"mph" stripped |
 | Evidence privacy scan | Discovery sample record contained a City planner's name and e-mail (published on the proposed-zoning layer) | Person and contact fields redacted in committed evidence |
+
+## Scenario benchmark (accuracy and time-to-answer)
+
+`npm run benchmark` ran 31 citizen questions (14 use cases plus phrasing variations) twice against the live stack, starting from a freshly restarted backend. **62/62 accurate**: the expected tool succeeded *and* the reply contained the independently verified key fact. Tool selection 100%. Cold p50 199 ms, p95 942 ms, max 1.3 s; warm p50 164 ms, p95 669 ms. Mode: offline planner (no AI key). Details: [SCENARIO_BENCHMARK.md](SCENARIO_BENCHMARK.md).
 
 ## Per-use-case results
 

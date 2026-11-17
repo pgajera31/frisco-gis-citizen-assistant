@@ -124,6 +124,24 @@ test("use cases 11–14 from the 'More questions' list: school district and near
   await snap(page, "13-nearest-fire-station.png");
 });
 
+test("status banner names the questions affected when a City data service is down", async ({ page }) => {
+  // Simulate an outage report from the backend (the real endpoint is exercised by the live API/MCP tests).
+  await page.route("**/api/status", (route) =>
+    route.fulfill({
+      json: { summary: "1 of 19 City data services are not responding", checkedServices: 19, down: [{ layer: "Speed Limits", affects: "speed limit answers" }], coveredByBackup: [] },
+    }),
+  );
+  await page.reload();
+  const banner = page.getByRole("status").filter({ hasText: "aren't responding" });
+  await expect(banner).toContainText("speed limit answers");
+  await expect(banner).toContainText("Other questions still work");
+  await snap(page, "14-service-status-banner.png");
+});
+
+test("no status banner when all City data services respond", async ({ page }) => {
+  await expect(page.locator(".status-warn")).toHaveCount(0);
+});
+
 test("invalid address shows a clear message, not a fabricated answer", async ({ page }) => {
   const a = await ask(page, "What is the closest park to 99999 Nonexistent Imaginary Ln?");
   await expect(a).toContainText("couldn't find");
