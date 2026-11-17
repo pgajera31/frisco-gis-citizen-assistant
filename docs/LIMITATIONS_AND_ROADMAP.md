@@ -18,7 +18,7 @@
 - Offline-planner mode understands the 10 supported question types and many variations, but not open-ended phrasing. The AI mode is the intended experience.
 - Sessions and rate-limit counters are in memory, so a restart clears conversations.
 - Map shows only the latest answer's features. There is no layer toggling or basemap switching.
-- No static map image or CSV export yet (mentioned as optional in the proposal's risk table).
+- Map images depend on Esri's public print service (`utility.arcgisonline.com`). Its output links are temporary, and the image has a caption but no legend.
 - English only.
 
 ## Before production
@@ -29,10 +29,9 @@
 4. Move to shared session and rate-limit storage (Redis), add AI cost budgets, structured logging and monitoring, plus a status banner fed by layer health checks.
 5. Add authentication to the HTTP MCP endpoint if it is exposed, and put the API behind a gateway with WAF/bot protection.
 6. Run an accessibility audit with assistive-technology users, a usability study with residents, and a content review of glossary and disclaimers with City Communications.
-7. Set up CI: run `npm test` on every PR, nightly `LIVE_GIS=1` runs to detect schema or data drift, and `npm run inventory` diffs.
+7. CI exists (`.github/workflows/ci.yml`: offline gate on PRs, nightly live and browser runs). Next: make the live job a required check once the City confirms service SLAs, and add a nightly `npm run inventory` diff to flag schema changes.
 
 ## Future enhancements (aligned with the proposal)
-- Static map image / PNG download and CSV export of results.
 - Walk-time to amenities (needs a routable sidewalk/trail network).
 - Additional MCP tools: school zones by school, ISD boundaries, future land use, trash pickup or other public services, public facilities and events.
 - Multilingual answers (Spanish first) and voice input.

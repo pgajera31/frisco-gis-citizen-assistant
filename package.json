@@ -16,6 +16,7 @@
     "build": "npm run build -w packages/mcp-server && npm run build -w apps/backend && npm run build -w apps/web",
     "pretypecheck": "npm run build -w packages/mcp-server",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "predev": "npm run build -w packages/mcp-server",
     "dev": "node scripts/dev.mjs",
     "start": "npm run start -w apps/backend",
     "mcp": "npm run start -w packages/mcp-server",

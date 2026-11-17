@@ -101,6 +101,10 @@ The City also publishes `CITY/Trails_Update/MapServer/3` "Walking Loops" (35) an
 | Traffic Closures | `AGOL/TrafficClosures/FeatureServer/0` | Polygon · 561 (`Status` Active 1 / Removed 560; `Owner` NTTA 533, City 26) | Supporting "active closures" tool. **Never presented as construction.** | 2026-01-28 |
 | Esri World Geocoder | `https://geocode.arcgis.com/…/World/GeocodeServer/findAddressCandidates` | — | Fallback for landmarks / addresses missing from City points; restricted to a Frisco bounding box, score ≥ 85, `forStorage=false` | live |
 | U.S. Census Geocoder | `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress` | — | Last-resort fallback (range interpolation) | live |
+| ArcGIS Online item search | `https://www.arcgis.com/sharing/rest/search` | — | `search_gis_catalog`: the City's public maps, apps and services (`owner:FriscoTexas`, e.g. 10 items for "construction") | live |
+| Esri Export Web Map Task | `https://utility.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task` | — | `get_map_image`: renders PNGs anonymously. Verified to draw City FeatureServer **and** MapServer layers (e.g. Active CIP) live. | live |
+
+**Buffer accuracy check (live, 2026-11-17).** Server-side ArcGIS `distance` buffers on the park layer around 6101 Frisco Square Blvd returned 8 / 21 / 43 parks at 1 / 2 / 3 miles. The assistant's own geodesic boundary-distance calculation gave **the same 8 / 21 / 43** (future sites included in both). On the City's CIP MapServer, 5 Road projects in Construction/Design/Planning were within 1 mile by both methods. The server-side buffers are therefore consistent with geodesic distance at Frisco's latitude, and `count_features_within_radius` uses them.
 
 ---
 

@@ -15,17 +15,18 @@ Raw evidence (committed):
 |---|---|---|---|---|---|
 | `packages/mcp-server/test/unit.address-geometry.test.ts` | Unit | 27 | 27 | 0 | 0 |
 | `packages/mcp-server/test/mocked.reliability.test.ts` | Mocked (fake fetch) | 26 | 26 | 0 | 0 |
-| `packages/mcp-server/test/mcp.integration.test.ts` — protocol | MCP integration (real server over stdio) | 7 | 7 | 0 | 0 |
-| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 13 | 13 | 0 | 0 |
-| `apps/backend/test/unit.planner.test.ts` | Unit | 44 | 44 | 0 | 0 |
+| `packages/mcp-server/test/mocked.catalog-count-image.test.ts` | Mocked (catalog search, buffer/count, map image) | 11 | 11 | 0 | 0 |
+| `packages/mcp-server/test/mcp.integration.test.ts` — protocol | MCP integration (real server over stdio) | 8 | 8 | 0 | 0 |
+| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 16 | 16 | 0 | 0 |
+| `apps/backend/test/unit.planner.test.ts` | Unit | 51 | 51 | 0 | 0 |
 | `apps/backend/test/mocked.claude-loop.test.ts` | Mocked (scripted model + fake MCP) | 11 | 11 | 0 | 0 |
-| `apps/backend/test/mocked.api-security.test.ts` | Mocked (supertest + fake MCP) | 19 | 19 | 0 | 0 |
-| `apps/backend/test/live.e2e-pipeline.test.ts` | **Live** HTTP → MCP client → MCP server → ArcGIS (offline + AI-scripted) | 13 | 13 | 0 | 0 |
-| `apps/web/test/mapStyles.test.ts` | Unit | 4 | 4 | 0 | 0 |
-| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 10 | 10 | 0 | 0 |
-| **Total** | | **174** | **174** | **0** | **0** |
+| `apps/backend/test/mocked.api-security.test.ts` | Mocked (supertest + fake MCP) | 22 | 22 | 0 | 0 |
+| `apps/backend/test/live.e2e-pipeline.test.ts` | **Live** HTTP → MCP client → MCP server → ArcGIS (offline + AI-scripted + PNG) | 14 | 14 | 0 | 0 |
+| `apps/web/test/mapStyles.test.ts`, `csv.test.ts` | Unit | 8 | 8 | 0 | 0 |
+| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 11 | 11 | 0 | 0 |
+| **Total** | | **205** | **205** | **0** | **0** |
 
-Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 26 live tests are skipped and everything else runs offline.
+Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 30 live tests are skipped and everything else runs offline. The same offline run was reproduced from a clean clone with `npm ci` (as CI does).
 
 ### Defects found by testing and fixed
 | Found by | Defect | Fix |
@@ -39,6 +40,8 @@ Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm
 | Discovery script | Amenity points inside overlapping park polygons credited to one park only; "(Future Site)" parks and a UI placeholder record could be returned | Multi-park assignment; future sites excluded by default; placeholder skipped |
 | Live results review | City address-point citation lacked a last-edited date | Geocoder citations now include layer freshness |
 | E2E | Flaky skip-link focus test (headless focus starts in browser chrome) | Deterministic focus setup |
+| Clean-clone CI simulation | `npm run typecheck` / `npm test` failed on a fresh checkout because the backend imports the MCP server package's compiled output | Root `pretypecheck`, `pretest` and `predev` scripts build the MCP server package first |
+| Live map-image review | The caption drawn into map images was clipped (the print service ignores left alignment) | Caption anchored at the top centre and shortened |
 
 ## Per-use-case results
 
@@ -60,11 +63,20 @@ All rows use **live GIS data**. "Mode" indicates which assistant path produced t
 | NEG1 | Zoning at 99999 Nonexistent Imaginary Ln | geocoders | Clear failure, no fabrication | `ADDRESS_NOT_FOUND` → "I couldn't find … in or near Frisco" | **Pass** | — | — | Live |
 | NEG2 | Speed limit on Zzyzx Boulevard | Speed Limits | No made-up limit | No match / suggestions only | **Pass** | — | — | Live |
 
+### Proposal tool-catalog tools (added after the 10 use cases)
+
+| ID | Question / action | Source | Expected | Actual (2026-11-17) | Status | Live/mocked |
+|---|---|---|---|---|---|---|
+| CAT1 | What maps does the City publish about construction? | ArcGIS Online item search | Only public FriscoTexas items | 10 items, e.g. "Construction & Development App", "Construction & Development Map", "Traffic Experience" | **Pass** (MCP, planner) | Live + mocked (operator injection) |
+| CNT1 | How many parks are within 2 miles of 6101 Frisco Square Blvd? | ParkApp_Testing (server buffer) | Equals the geodesic radius search | Count equals `find_parks_within_radius` (19, future sites excluded) | **Pass** (MCP) | Live + mocked |
+| IMG1 | Map image of an answer | Esri Export Web Map task | PNG with result features, returned as MCP image content | 1000×700 PNG with the nearest-park polygons, address marker and caption; also downloaded via the web UI (`docs/screenshots/12-downloaded-map-image.png`) | **Pass** (MCP, API, browser) | Live + mocked (allowlist bypass refused) |
+| CSV | Download results (CSV) | — | One row per result, sources and retrieval time, formula-safe | CSV contains "Simpson Plaza" and a `data_sources` column | **Pass** (browser, unit) | Live + unit |
+
 ## Category coverage
 
 **Functional:** GIS requests and pagination (mocked + live); every MCP tool (live); MCP client connect/discover/call (MCP integration + backend live); geocoding incl. fallbacks (live UC10b); spatial searches (UC1/2/6/9); amenity filtering (UC3/4, spatial-join fixture test); zoning (UC5); trails (UC6/7); road projects (UC8/9); speed limits (UC10, fixture clarification test); map visualization (browser: polygons, markers, legend, popups, result selection).
 
-**Conversational:** follow-ups (UC4 offline + AI-scripted); context reuse ("zoning there"); ambiguous requests (Preston Rd clarification; "nearest park?" without address asks for one); unsupported questions (weather, poems → help text); 44 phrasing-variation and planner unit tests.
+**Conversational:** follow-ups (UC4 offline + AI-scripted); context reuse ("zoning there"); ambiguous requests (Preston Rd clarification; "nearest park?" without address asks for one); unsupported questions (weather, poems → help text); 51 phrasing-variation and planner unit tests.
 
 **Reliability:** invalid addresses (NEG1); missing records/empty results (NEG2, zero-result summaries); service timeouts, network failures, 5xx with retry, ArcGIS error-in-200, non-JSON bodies, oversized results (mocked); AI provider failure → offline fallback (mocked API); MCP connection failure → 503 (mocked API); City speed layer outage → open-data fallback (mocked).
 
