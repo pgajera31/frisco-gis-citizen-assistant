@@ -11,6 +11,8 @@
 - **Park data** is the sponsor's `ParkApp_Testing` layer: no entrance points, so distances go to the park boundary. 9 future sites are excluded by default. Spelling differs from the open-data park layer.
 - **Speed limits** come from GIS records, not signage. Several roads are TxDOT/NTTA-maintained, and school zones apply only at posted times.
 - **Zoning** answers report the district and ordinances only. No permitted-use interpretation is attempted, by design.
+- **Schools:** only the school *district* can be determined. Attendance zones (which campus serves an address) are not in City data. School and facility categories rely on verified subtype codes or names, not a published domain.
+- **Future land use:** the 2025 layer's code column (`FLU_CD`) is inconsistent with its descriptions; only descriptions are reported. The City should clean this column.
 - **City MapServer layers** (zoning category, CIP, speed limits) publish no edit dates. Answers show retrieval time instead.
 - The City's own composite geocoder (`geo.friscotexas.gov`) was unreachable from the development environment. Esri and Census are used as fallbacks after the City's address points.
 
@@ -33,6 +35,6 @@
 
 ## Future enhancements (aligned with the proposal)
 - Walk-time to amenities (needs a routable sidewalk/trail network).
-- Additional MCP tools: school zones by school, ISD boundaries, future land use, trash pickup or other public services, public facilities and events.
+- Additional MCP tools: trash/recycling pickup days, school speed zones by school, and City events (needs a public events layer without personal data).
 - Multilingual answers (Spanish first) and voice input.
 - Admin console for the tool catalog and usage analytics.

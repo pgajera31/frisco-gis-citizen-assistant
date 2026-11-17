@@ -250,6 +250,15 @@ button {
   padding: 10px 12px;
   color: var(--blue-900);
 }
+.more-suggestions {
+  margin-top: 12px;
+}
+.more-suggestions summary {
+  cursor: pointer;
+  color: var(--blue-700);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
 .suggestion:hover {
   background: var(--blue-100);
 }

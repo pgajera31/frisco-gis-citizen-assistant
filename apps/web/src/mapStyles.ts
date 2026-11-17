@@ -48,6 +48,10 @@ export function featureStyle(p: MapFeatureProps, selected: boolean): PathOptions
       return { color: mphColor(Number(p.styleValue) || 0), weight: 5 + weightBoost, opacity: 0.9 };
     case "school-zone":
       return { color: "#fab005", weight: 9 + weightBoost, opacity: 0.6 };
+    case "school-district":
+      return { color: "#5f3dc4", weight: 3 + weightBoost, fillColor: "#b197fc", fillOpacity: 0.15 };
+    case "future-land-use":
+      return { color: "#e67700", weight: 2 + weightBoost, fillColor: "#ffd43b", fillOpacity: 0.3 };
     case "search-area":
       return { color: "#1565b0", weight: 2 + weightBoost, dashArray: "6 6", fillColor: "#1565b0", fillOpacity: 0.08 };
     default:
@@ -59,7 +63,8 @@ export function pointStyle(kind: MapKind, selected: boolean) {
   if (kind === "search-location") {
     return { radius: 9, color: "#ffffff", weight: 3, fillColor: "#c92a2a", fillOpacity: 1 };
   }
-  return { radius: selected ? 8 : 6, color: "#ffffff", weight: 2, fillColor: "#e67700", fillOpacity: 0.95 };
+  const fill = kind === "school" ? "#5f3dc4" : kind === "facility" ? "#0b7285" : "#e67700";
+  return { radius: selected ? 9 : kind === "amenity" ? 6 : 7, color: "#ffffff", weight: 2, fillColor: fill, fillOpacity: 0.95 };
 }
 
 export const KIND_LABELS: Record<MapKind, string> = {
@@ -75,6 +80,10 @@ export const KIND_LABELS: Record<MapKind, string> = {
   "speed-segment": "Street segment (speed limit)",
   "school-zone": "School zone",
   "search-area": "Search area (buffer)",
+  "school-district": "School district boundary",
+  "future-land-use": "Future land use area",
+  school: "School",
+  facility: "Public facility",
 };
 
 /** Swatch color for the legend. */
@@ -82,5 +91,7 @@ export function legendColor(kind: MapKind): string {
   const s = featureStyle({ kind, id: "", label: "", styleValue: kind === "speed-segment" ? 45 : kind === "road-project" ? "Construction" : undefined }, false);
   if (kind === "search-location") return "#c92a2a";
   if (kind === "amenity") return "#e67700";
+  if (kind === "school") return "#5f3dc4";
+  if (kind === "facility") return "#0b7285";
   return (s.fillColor as string) ?? (s.color as string);
 }

@@ -43,7 +43,7 @@ describe.skipIf(!LIVE)("LIVE pipeline: API → MCP client → MCP server → Arc
 
   it("health shows the MCP server connected with its discovered tools", async () => {
     const res = await request(createApp({ mcp, mode: "offline" })).get("/api/health");
-    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 16, transport: "stdio" });
+    expect(res.body.mcp).toMatchObject({ connected: true, toolCount: 20, transport: "stdio" });
   });
 
   describe("Part 1 — offline planner mode, one conversation", () => {
@@ -116,6 +116,19 @@ describe.skipIf(!LIVE)("LIVE pipeline: API → MCP client → MCP server → Arc
       const b = await ask("UC10", "What's the speed limit on Preston Road?");
       expect(b.toolCalls[0]).toMatchObject({ tool: "get_speed_limit", ok: true });
       expect(b.clarification?.options.length).toBeGreaterThan(1);
+    });
+    it("UC11–UC14 school district, future land use, schools, fire station", async () => {
+      const cases: [string, string, string][] = [
+        ["UC11", "Which school district is 6101 Frisco Square Blvd in?", "lookup_school_district"],
+        ["UC12", "What is the future land use for 6101 Frisco Square Blvd?", "lookup_future_land_use"],
+        ["UC13", "What schools are near 6101 Frisco Square Blvd?", "find_nearby_schools"],
+        ["UC14", "Where is the nearest fire station to 6101 Frisco Square Blvd?", "find_nearby_facilities"],
+      ];
+      for (const [id, q, tool] of cases) {
+        const b = await ask(id, q);
+        expect(b.toolCalls[0]).toMatchObject({ tool, ok: true });
+        expect(b.map.features.length).toBeGreaterThan(1);
+      }
     });
     it("PNG map image of the latest answer (via MCP get_map_image → Esri print service)", async () => {
       await ask("IMG", "What is the closest park to 6101 Frisco Square Blvd?");

@@ -27,7 +27,11 @@ export type MapKind =
   | "traffic-closure"
   | "speed-segment"
   | "school-zone"
-  | "search-area";
+  | "search-area"
+  | "school-district"
+  | "future-land-use"
+  | "school"
+  | "facility";
 
 export interface MapFeatureProps {
   kind: MapKind;

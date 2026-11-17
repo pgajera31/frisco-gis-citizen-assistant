@@ -4,7 +4,7 @@
 
 Residents ask everyday questions such as *"What is the closest park to 6101 Frisco Square Blvd?"*, *"Which of those also have playgrounds?"* or *"What's the speed limit on Preston Road?"*. Each answer comes back in plain English with an interactive map, the City data layers it came from (with last-updated dates), and a short explanation of how it was derived.
 
-All GIS access goes through a genuine **Model Context Protocol (MCP)** server, which exposes 16 validated, read-only tools over the City of Frisco's ArcGIS REST services. These include the proposal's full tool catalog: search content, describe layer, query features, get map image, and buffer/count. The backend connects to it with the official **MCP client**, and a language model (Claude) chooses which tools to call.
+All GIS access goes through a genuine **Model Context Protocol (MCP)** server, which exposes 20 validated, read-only tools over the City of Frisco's ArcGIS REST services. These include the proposal's full tool catalog: search content, describe layer, query features, get map image, and buffer/count. The backend connects to it with the official **MCP client**, and a language model (Claude) chooses which tools to call.
 
 ```
 Citizen → Web UI → Backend API → AI assistant (Claude) → MCP client ⇄(stdio)⇄ MCP server → City ArcGIS REST → answer + map + sources
@@ -40,6 +40,12 @@ Citizen → Web UI → Backend API → AI assistant (Claude) → MCP client ⇄(
 | 8 | Active road construction | ⚠️ Partial | 17 City CIP road projects (9 flagged as possibly stale) |
 | 9 | Road projects near an address | ⚠️ Partial | 5 projects within 1 mi |
 | 10 | Street speed limits | ✅ Supported | Preston Rd: 45/55 mph, so the assistant asks which stretch |
+| 11 | School district for an address | ✅ Supported | Frisco ISD (district only; attendance zones aren't in City data) |
+| 12 | Future land use plan | ✅ Supported | Town Center (2025 Comprehensive Plan) |
+| 13 | Schools near an address | ✅ Supported | 17 schools within 2 mi |
+| 14 | Nearest public facility | ✅ Supported | Fire Station 4, 0.9 mi; Frisco Public Library, 0.38 mi |
+
+Use cases 1–10 are the required scope; 11–14 bring the project to the proposal's "10–15 curated use cases". The proposal's tool catalog (content search, buffer/count, map image) is also implemented.
 
 Details and evidence: [docs/USE_CASE_FEASIBILITY.md](docs/USE_CASE_FEASIBILITY.md) and [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
 
@@ -56,7 +62,7 @@ Details and evidence: [docs/USE_CASE_FEASIBILITY.md](docs/USE_CASE_FEASIBILITY.m
 ## Repository layout
 
 ```
-packages/mcp-server   MCP server: ArcGIS client, layer registry, geometry, 16 tools, tests
+packages/mcp-server   MCP server: ArcGIS client, layer registry, geometry, 20 tools, tests
 apps/backend          Express API, MCP client, Claude orchestrator, offline planner, tests
 apps/web              React + Leaflet citizen UI
 e2e/                  Playwright browser tests
@@ -131,7 +137,7 @@ npm run start -w apps/backend                     # backend API (launches its ow
 npm run dev -w apps/web                           # web UI dev server
 ```
 
-Health check: `curl http://localhost:8787/api/health` returns `{"status":"ok","mode":"offline|ai","mcp":{"connected":true,"toolCount":16,"transport":"stdio"}}`.
+Health check: `curl http://localhost:8787/api/health` returns `{"status":"ok","mode":"offline|ai","mcp":{"connected":true,"toolCount":20,"transport":"stdio"}}`.
 
 ## Testing
 
@@ -143,13 +149,13 @@ npm run typecheck             # TypeScript across all workspaces
 npm run inventory             # re-run GIS data discovery → docs/gis-discovery/
 ```
 
-Latest results (2026-11-17): **205 tests passed, 0 failed**, including 30 live-GIS tests and 11 browser tests.
+Latest results (2026-11-17): **238 tests passed, 0 failed**, including 35 live-GIS tests and 12 browser tests.
 
 **Continuous integration** (`.github/workflows/ci.yml`): every pull request runs typecheck, build and the offline suites. A second job runs the live GIS and Playwright suites; it runs nightly and on demand, so changes in the City's services are caught early. See [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
 
 ## Using the application
 
-1. Pick a suggested question or type your own, using any Frisco address or landmark.
+1. Pick a suggested question (open **More questions you can ask** for schools, facilities, land use and more) or type your own, using any Frisco address or landmark.
 2. Read the answer, then open **"Sources & how this was answered"** to see the data layers (with links and last-updated dates), the method, the limitations, and the MCP tools that ran.
 3. Click a result chip under the answer to highlight it on the map. Click features on the map for details.
 4. Use **Download results (CSV)** to save the answer's data (with source layers and retrieval time), or **Download map image (PNG)** for a printable map of the answer. The image is rendered by the MCP `get_map_image` tool through Esri's public print service and carries a prototype/data caption.

@@ -96,7 +96,7 @@ export function extractAmenities(text: string): string[] {
 function extractStreet(text: string): { street?: string; near?: string } {
   const m = text.match(/\b(?:on|for|of|along|down)\s+(?:the\s+)?([A-Za-z0-9 .'-]+?)(?:\s+(?:near|at|by|around)\s+(.+?))?\s*(?:in frisco)?\s*[?.!]*$/i);
   if (!m) return {};
-  const street = m[1].trim();
+  const street = m[1].replace(/\s+(speed limits?|mph|limits?)\s*$/i, "").trim();
   if (!street || /^(frisco|my street|the road)$/i.test(street)) return {};
   return { street, near: m[2] ? extractAddress(m[2]) ?? m[2].trim() : undefined };
 }
@@ -117,6 +117,17 @@ const COUNT_LAYER_WORDS: [RegExp, string][] = [
   [/\bschool zones?\b/, "schoolZones"],
   [/\b(addresses|homes|houses|address points)\b/, "addressPoints"],
   [/\b(parcels?|lots|properties)\b/, "parcels"],
+];
+
+/** Facility words → find_nearby_facilities category ("" = any public facility). */
+const FACILITY_WORDS: [RegExp, string][] = [
+  [/\bfire ?(station|house|department)s?\b/, "fire station"],
+  [/\bpolice( station| department| headquarters)?\b/, "police"],
+  [/\blibrar(y|ies)\b/, "library"],
+  [/\bpost offices?\b/, "post office"],
+  [/\b(city hall|municipal center|municipal court)\b/, "city hall"],
+  [/\b(rec(reation)? centers?|athletic center)\b/, "recreation"],
+  [/\bpublic facilit(y|ies)\b|\bcity facilit(y|ies)\b/, ""],
 ];
 
 const FOLLOW_UP_RE = /\b(those|these|them|ones|that list|of the(?:se|m))\b/i;
@@ -165,6 +176,43 @@ export function planOffline(text: string, ctx: OfflineContext): Plan {
     const { street, near } = extractStreet(t);
     if (!street) return { kind: "reply", text: "Which street do you want the speed limit for? For example: “What's the speed limit on Preston Road?”", intent: "speed_limit" };
     return { kind: "call", intent: "speed_limit", call: { tool: "get_speed_limit", args: { street_name: street, ...(near ? { near_address: near } : {}) } } };
+  }
+
+  // 11. School district (before zoning/schools: "school district" is not a list of schools)
+  if (/\bschool district\b|\bisd\b|\bwhich district\b/.test(lower)) {
+    const addr = extractPlace(t) ?? (/\b(there|that address|same address|it)\b/.test(lower) ? ctx.lastAddress : undefined);
+    if (!addr) return { kind: "reply", intent: "school_district", text: "Which address should I check? For example: “Which school district is 6101 Frisco Square Blvd in?”" };
+    return { kind: "call", intent: "school_district", call: { tool: "lookup_school_district", args: { address: addr } } };
+  }
+
+  // 12. Future land use (long-range plan, not zoning)
+  if (/\bfuture land ?use\b|\bland ?use plan\b|\bcomprehensive plan\b|\bplanned (?:to be|for)\b/.test(lower)) {
+    const addr = extractPlace(t) ?? (/\b(there|that address|same address|it)\b/.test(lower) ? ctx.lastAddress : undefined);
+    if (!addr) return { kind: "reply", intent: "future_land_use", text: "Which address should I check? For example: “What is the future land use for 6101 Frisco Square Blvd?”" };
+    return { kind: "call", intent: "future_land_use", call: { tool: "lookup_future_land_use", args: { address: addr } } };
+  }
+
+  // 14. Public facilities
+  const facility = FACILITY_WORDS.find(([re]) => re.test(lower))?.[1];
+  if (facility !== undefined) {
+    const addr = extractPlace(t) ?? ctx.lastAddress;
+    if (!addr) return { kind: "reply", intent: "facilities", text: "What address should I search from? For example: “Where is the nearest fire station to 6101 Frisco Square Blvd?”" };
+    return { kind: "call", intent: "facilities", call: { tool: "find_nearby_facilities", args: { address: addr, ...(facility ? { category: facility } : {}) } } };
+  }
+
+  // 13. Schools near an address
+  if (/\b(schools?|universit(y|ies)|colleges?)\b/.test(lower) && !/\bschool zones?\b/.test(lower)) {
+    const addr = extractPlace(t);
+    if (addr) {
+      const level = /\belementary\b/.test(lower) ? "elementary" : /\b(middle|intermediate)\b/.test(lower) ? "middle" : /\bhigh school/.test(lower) ? "high" : /\b(college|universit)/.test(lower) ? "college" : undefined;
+      const type = /\bprivate\b/.test(lower) ? "Private" : /\bcharter\b/.test(lower) ? "Charter" : /\bpublic\b/.test(lower) ? "Public" : undefined;
+      const radius = extractRadius(t);
+      return {
+        kind: "call",
+        intent: "schools",
+        call: { tool: "find_nearby_schools", args: { address: addr, ...(level ? { level } : {}), ...(type ? { school_type: type } : {}), ...(radius ? { radius_miles: Math.min(radius, 5) } : {}) } },
+      };
+    }
   }
 
   // 5. Zoning
@@ -325,6 +373,21 @@ export function formatResult(result: GisToolResult): string {
       break;
     case "find_traffic_closures":
       body = list(rows, (r) => `${s(r.description)}${r.timePeriod ? ` — ${s(r.timePeriod)}` : ""}`);
+      break;
+    case "lookup_school_district":
+      body = result.limitations?.[0] ?? "";
+      break;
+    case "lookup_future_land_use":
+      body = [
+        ...rows.map((r) => (r.planDocument ? `- [${s(r.planYear)} Comprehensive Plan document](${s(r.planDocument)})` : "")).filter(Boolean),
+        result.limitations?.[0] ?? "",
+      ].join("\n\n");
+      break;
+    case "find_nearby_schools":
+      body = list(rows, (r) => `**${s(r.name)}** — ${s(r.distanceMiles)} mi; ${[r.level, r.type, r.district].filter(Boolean).join(", ")}`, 12) + `\n\n${result.limitations?.[0] ?? ""}`;
+      break;
+    case "find_nearby_facilities":
+      body = list(rows, (r) => `**${s(r.name)}** — ${s(r.distanceMiles)} mi${r.address ? ` (${s(r.address)})` : ""}`);
       break;
     case "search_gis_catalog":
       body = list(rows, (r) => `[${s(r.title)}](${s(r.itemPage)}) — ${s(r.type)}${r.lastModified ? `, updated ${s(r.lastModified)}` : ""}`, 10);

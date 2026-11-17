@@ -8,7 +8,7 @@ Citizen ─► Web UI (React + Leaflet) ─► Backend API (Express) ─► AI o
                                                                              │ stdio (JSON-RPC)
                                                                              ▼
                                                               MCP server "frisco-gis-mcp"
-                                                              16 read-only GIS tools
+                                                              20 read-only GIS tools
                                                                              │ HTTPS (allow-listed)
                                                                              ▼
                                                  City of Frisco ArcGIS REST services (+ geocoders)
@@ -44,10 +44,10 @@ sequenceDiagram
 
 | Component | Path | Responsibility | Key technology |
 |---|---|---|---|
-| **MCP server** | `packages/mcp-server` | Exposes 16 validated, read-only GIS tools. Owns every ArcGIS request, geocoding, spatial maths, and source citation. | `@modelcontextprotocol/sdk` (McpServer, stdio and Streamable HTTP), zod schemas, Turf.js |
+| **MCP server** | `packages/mcp-server` | Exposes 20 validated, read-only GIS tools. Owns every ArcGIS request, geocoding, spatial maths, and source citation. | `@modelcontextprotocol/sdk` (McpServer, stdio and Streamable HTTP), zod schemas, Turf.js |
 | ArcGIS client | `…/src/arcgis/client.ts` | Endpoint allowlist, HTTPS only, timeouts, retry with backoff, ArcGIS-error-in-200 detection, pagination, caching, SQL-literal escaping | `fetch` |
 | Layer registry | `…/src/arcgis/layers.ts` | The only layers the server may query (URL, title, publisher, notes) | — |
-| Tools | `…/src/tools/*.ts` | Parks, zoning, trails, road projects, speed limits, geocoding, data-source catalog, City GIS item search, buffer/count, map image | Turf (geodesic distances, point-in-polygon, buffers); Esri Export Web Map GP task for PNG rendering |
+| Tools | `…/src/tools/*.ts` | Parks, zoning, future land use, school districts, schools, public facilities, trails, road projects, speed limits, geocoding, data-source catalog, City GIS item search, buffer/count, map image | Turf (geodesic distances, point-in-polygon, buffers); Esri Export Web Map GP task for PNG rendering |
 | **Backend** | `apps/backend` | HTTP API, sessions, rate limiting, security headers, the **MCP client**, the AI orchestrator, and the offline planner | Express 5, helmet, express-rate-limit, `@anthropic-ai/sdk` |
 | MCP client | `…/src/mcp/client.ts` | Spawns the MCP server (stdio), discovers tools, calls them with timeouts, reconnects | MCP SDK `Client` + `StdioClientTransport` |
 | AI orchestrator | `…/src/assistant/claude.ts` | Manual tool-use loop: tools come from MCP `tools/list`; parallel `tool_use` blocks run concurrently; results return as `tool_result` | Claude `claude-opus-5-5`, adaptive thinking, effort `medium`, server-side refusal fallback |

@@ -92,7 +92,15 @@ The City also publishes `CITY/Trails_Update/MapServer/3` "Walking Loops" (35) an
 | Handling | Proposed streets excluded. Segments grouped by MPH. Clarification is requested when there is more than one limit and no address. If an address is given, the nearest segment is used. |
 | Use case | UC10 |
 
-### 1.7 Supporting datasets
+### 1.7 Datasets for use cases 11–14
+| Dataset | URL | Geometry · count | Verified fields and values | Freshness | Handling |
+|---|---|---|---|---|---|
+| ISD Boundaries | `AGOL/FriscoZoning_ODH/FeatureServer/7` | Polygon · 13 | `NAME`: ALLEN, AUBREY, CARROLLTON-FARMERS BRANCH, CELINA, DENTON, FRISCO, LAKE DALLAS, LEWISVILLE, LITTLE ELM, MCKINNEY, PILOT POINT, PLANO, PROSPER | 2026-11-17 | Point-in-polygon; boundary cases reported; attendance-zone caveat |
+| Future Land Use 2025 | `AGOL/FLU2025_Layers/FeatureServer/1` | Polygon · 514 (native SR 104145; queried with outSR 4326) | `FLU_Desc` (Town Center, Mixed Use Center, Mixed Use Neighborhood, Suburban Neighborhood, Business Park, Retail, Park, Public / Semi-Public, Floodplain, Private Golf Course), `FLU_YR` 2025, `hyperlink` to the 2025-04-22 adoption. **`FLU_CD` is inconsistent** (e.g. `BP` used for "Park", "Retail" and "Mixed Use Center"), so it is not used. | 2026-02-09 | Report `FLU_Desc` only; links only to friscotexas.gov |
+| Schools | `AGOL/FriscoPOI_ODH/FeatureServer/4` | Point · 122 | `TYPE` PUB/PRI/CHAR; `DISTRICT` FISD/PISD/LISD/blank; `LIFECYCLES` COMP/PROP; `SUBTYPE` (no published domain, verified record by record: 2 = 54 elementary, 3 = 23 middle/intermediate, 4 = 17 high, **5 = 20 district support facilities** such as administration, transportation, natatorium and stadium, 7 = 4 colleges, 8/9 = 4 mixed private/charter) | 2026-11-17 | Subtype 5 and PROP excluded by default; level from subtype, else from name |
+| Public Facilities | `AGOL/FriscoPOI_ODH/FeatureServer/1` | Point · 38 | `NAME`, `ADDRESS`, `OWNER` (FRI/OTH/FED/COU). No category field; category from name: 10 fire stations (Central + Stations 2–10), police HQ, 2 libraries, 3 post offices, municipal center and court, recreation venues, public works | 2026-11-17 | Training and fleet buildings hidden from general searches |
+
+### 1.8 Supporting datasets
 | Dataset | URL | Geometry · count | Used for | Freshness |
 |---|---|---|---|---|
 | Address Points | `AGOL/FriscoLandRec_ODH/FeatureServer/0` | Point · 71,923 (`STR_NUMBER`, `STR_NAME`, `STR_SUFFIX`, `FULL_ADDRE`) | **Primary geocoder** (exact house-number match). 6101 Frisco Square Blvd → (-96.834539, 33.150040) | 2026-11-17 |
@@ -124,6 +132,16 @@ The City also publishes `CITY/Trails_Update/MapServer/3` "Walking Loops" (35) an
 | `geo.friscotexas.gov` FriscoComposite GeocodeServer | Referenced by the City's Traffic Experience but the connection was **reset** from this environment. | Not used; City address points give the same authority. |
 
 ---
+
+Evaluated for use cases 11–14 and rejected:
+
+| Dataset | Finding | Decision |
+|---|---|---|
+| `AGOL/SpecialEvents_active_approved_public_…/0` (14) | Internal records ("Extra Duty Traffic Control"), a placeholder "Event Name Here", and organiser personal contact fields (`pocname`, `pocemail`, `pocphone`) | **Rejected (privacy and quality).** It is deliberately left out of the discovery script so no sample record is saved. |
+| `AGOL/FriscoEvents/0` (1) | One 2023 record without a name | Rejected |
+| `AGOL/FriscoZoning_ODH/3` Future Land Use (2,658, `FLU_Year` 2015) | Superseded by the 2025 plan | Not used |
+
+**Data minimisation in this inventory:** sample records in `docs/gis-discovery/evidence.json` have person-identifying fields (staff names, contact e-mails/phones, organisers) replaced with `[redacted]`, even when the City publishes them. The proposed-zoning layer, for example, lists the case planner's name and e-mail. The assistant's tools never request these fields.
 
 ## 3. Reliability considerations (summary)
 

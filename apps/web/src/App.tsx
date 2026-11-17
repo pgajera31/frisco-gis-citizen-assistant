@@ -19,6 +19,16 @@ export const SUGGESTIONS = [
   "What's the speed limit on Preston Road?",
 ];
 
+/** Questions beyond the 10 required use cases (use cases 11–14 and the proposal's tool catalog). */
+export const MORE_SUGGESTIONS = [
+  "Which school district is 6101 Frisco Square Blvd in?",
+  "What is the future land use for 6101 Frisco Square Blvd?",
+  "What schools are near 6101 Frisco Square Blvd?",
+  "Where is the nearest fire station to 6101 Frisco Square Blvd?",
+  "How many parks are within 1 mile of 6101 Frisco Square Blvd?",
+  "What maps does the City publish about construction?",
+];
+
 const STORE_KEY = "frisco-gis-chat";
 
 /** Session-scoped persistence (per browser tab). Storage can be unavailable; never let that break the app. */
@@ -158,7 +168,7 @@ export default function App() {
           </svg>
           <div>
             <h1>Frisco GIS Citizen Assistant</h1>
-            <p className="tagline">Ask about parks, zoning, trails, road projects and speed limits in plain English.</p>
+            <p className="tagline">Ask about parks, zoning, schools, trails, road projects, speed limits and more in plain English.</p>
           </div>
         </div>
         <div className="header-actions">
@@ -205,6 +215,18 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
+                <details className="more-suggestions">
+                  <summary>More questions you can ask</summary>
+                  <ul className="suggestions" aria-label="More suggested questions">
+                    {MORE_SUGGESTIONS.map((s) => (
+                      <li key={s}>
+                        <button type="button" className="suggestion" onClick={() => void ask(s)}>
+                          {s}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </div>
             )}
             <ol className="messages" aria-live="polite" aria-relevant="additions" aria-label="Messages">

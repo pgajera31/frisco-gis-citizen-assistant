@@ -166,6 +166,42 @@ export const LAYERS = {
     notes: "Reduced school-zone limits with active times.",
     reportsLastEdit: false,
   },
+  isdBoundaries: {
+    key: "isdBoundaries",
+    title: "Independent School District Boundaries (FriscoZoning_ODH, layer 7)",
+    url: `${AGOL}/FriscoZoning_ODH/FeatureServer/7`,
+    publisher: "City of Frisco Planning / GIS (ArcGIS Online open data)",
+    geometry: "polygon",
+    notes: "13 ISD polygons (Frisco, Plano, Lewisville, Prosper, …). District only: attendance zones are not in City data.",
+    reportsLastEdit: true,
+  },
+  futureLandUse: {
+    key: "futureLandUse",
+    title: "Future Land Use Plan 2025 (FLU2025_Layers, layer 1)",
+    url: `${AGOL}/FLU2025_Layers/FeatureServer/1`,
+    publisher: "City of Frisco Planning / GIS (ArcGIS Online)",
+    geometry: "polygon",
+    notes: "514 polygons from the 2025 Comprehensive Plan (adopted 2025-04-22). FLU_Desc is the 2025 category; FLU_CD holds legacy 2015 codes and is not used.",
+    reportsLastEdit: true,
+  },
+  schools: {
+    key: "schools",
+    title: "Schools (FriscoPOI_ODH, layer 4)",
+    url: `${AGOL}/FriscoPOI_ODH/FeatureServer/4`,
+    publisher: "City of Frisco GIS (ArcGIS Online open data)",
+    geometry: "point",
+    notes: "122 school points: NAME, ADDRESS, TYPE (PUB/PRI/CHAR), DISTRICT, LIFECYCLES (COMP built / PROP proposed).",
+    reportsLastEdit: true,
+  },
+  publicFacilities: {
+    key: "publicFacilities",
+    title: "Public Facilities (FriscoPOI_ODH, layer 1)",
+    url: `${AGOL}/FriscoPOI_ODH/FeatureServer/1`,
+    publisher: "City of Frisco GIS (ArcGIS Online open data)",
+    geometry: "point",
+    notes: "38 facility points (fire stations, police, library, post offices, municipal center, recreation…): NAME, ADDRESS, OWNER.",
+    reportsLastEdit: true,
+  },
 } as const satisfies Record<string, LayerDef>;
 
 export type LayerKey = keyof typeof LAYERS;

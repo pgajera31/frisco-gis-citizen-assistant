@@ -38,6 +38,17 @@ const CANDIDATES: Record<string, string> = {
 type Json = Record<string, unknown>;
 const q = (url: string, params: Record<string, string>) => getJson(`${url}/query`, { f: "json", ...params });
 
+/**
+ * Data minimisation: sample records are committed to a public repository, so fields that can
+ * identify a person (staff names, contact e-mails/phones, event organisers) are redacted even when
+ * the City publishes them.
+ */
+const PERSONAL_FIELD = /planner|poc|email|_em$|phone|contact|owner_?name|applicant/i;
+function redact(rec: Json | null): Json | null {
+  if (!rec) return rec;
+  return Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, PERSONAL_FIELD.test(k) && v !== null && v !== "" ? "[redacted]" : v]));
+}
+
 async function describe(url: string) {
   const meta = (await getJson(url, { f: "json" })) as Json;
   const count = ((await q(url, { where: "1=1", returnCountOnly: "true" })) as Json).count;
@@ -56,7 +67,7 @@ async function describe(url: string) {
     lastEditDate: typeof last === "number" ? new Date(last).toISOString() : null,
     fields: ((meta.fields as Json[]) ?? []).map((f) => `${f.name}:${String(f.type).replace("esriFieldType", "")}`),
     exampleQuery: `${url}/query?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json`,
-    sampleRecord: sample?.[0]?.attributes ?? null,
+    sampleRecord: redact((sample?.[0]?.attributes as Json | undefined) ?? null),
   };
 }
 

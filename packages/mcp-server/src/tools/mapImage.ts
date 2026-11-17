@@ -41,9 +41,10 @@ export function esriSymbol(kind: MapKind, styleValue: unknown, geomType: "point"
   const line = (color: RGBA, width: number, style = "esriSLSSolid") => ({ type: "esriSLS", style, color, width });
   const fill = (color: RGBA, outline: Record<string, unknown>) => ({ type: "esriSFS", style: "esriSFSSolid", color, outline });
   if (geomType === "point") {
-    return kind === "search-location"
-      ? { type: "esriSMS", style: "esriSMSCircle", color: hex("#c92a2a"), size: 12, outline: { color: [255, 255, 255, 255], width: 2 } }
-      : { type: "esriSMS", style: "esriSMSCircle", color: hex("#e67700"), size: 8, outline: { color: [255, 255, 255, 255], width: 1 } };
+    if (kind === "search-location") return { type: "esriSMS", style: "esriSMSCircle", color: hex("#c92a2a"), size: 12, outline: { color: [255, 255, 255, 255], width: 2 } };
+    if (kind === "school") return { type: "esriSMS", style: "esriSMSSquare", color: hex("#5f3dc4"), size: 10, outline: { color: [255, 255, 255, 255], width: 1.5 } };
+    if (kind === "facility") return { type: "esriSMS", style: "esriSMSDiamond", color: hex("#0b7285"), size: 11, outline: { color: [255, 255, 255, 255], width: 1.5 } };
+    return { type: "esriSMS", style: "esriSMSCircle", color: hex("#e67700"), size: 8, outline: { color: [255, 255, 255, 255], width: 1 } };
   }
   switch (kind) {
     case "park":
@@ -66,6 +67,10 @@ export function esriSymbol(kind: MapKind, styleValue: unknown, geomType: "point"
       return line(hex(mphHex(Number(styleValue) || 0)), 4);
     case "school-zone":
       return line(hex("#fab005", 160), 7);
+    case "school-district":
+      return fill(hex("#b197fc", 40), line(hex("#5f3dc4"), 3));
+    case "future-land-use":
+      return fill(hex("#ffd43b", 70), line(hex("#e67700"), 2));
     default:
       return geomType === "polygon" ? fill(hex("#495057", 60), line(hex("#495057"), 2)) : line(hex("#495057"), 2);
   }

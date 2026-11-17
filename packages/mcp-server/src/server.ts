@@ -12,6 +12,15 @@ import { lookupZoning } from "./tools/zoning.js";
 import { CATALOG_ITEM_TYPES, searchGisCatalog } from "./tools/catalogSearch.js";
 import { COUNTABLE_LAYERS, type CountableLayer, countFeaturesWithinRadius } from "./tools/countNear.js";
 import { getMapImage, OVERLAY_LAYERS, type OverlayLayer } from "./tools/mapImage.js";
+import {
+  FACILITY_CATEGORIES,
+  type FacilityCategory,
+  findNearbyFacilities,
+  findNearbySchools,
+  lookupFutureLandUse,
+  lookupSchoolDistrict,
+  SCHOOL_LEVELS,
+} from "./tools/places.js";
 
 export const SERVER_NAME = "frisco-gis-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -406,6 +415,7 @@ export function createServer(): McpServer {
   const kinds = [
     "search-location", "park", "amenity", "trail", "zoning", "parcel", "proposed-zoning",
     "road-project", "traffic-closure", "speed-segment", "school-zone", "search-area",
+    "school-district", "future-land-use", "school", "facility",
   ] as const;
   const highlightSchema = z.object({
     type: z.literal("FeatureCollection"),
@@ -473,6 +483,91 @@ export function createServer(): McpServer {
           includeImageData: a.include_image_data,
         }),
     ),
+  );
+
+  server.registerTool(
+    "lookup_school_district",
+    {
+      title: "Look up the school district for an address",
+      description: "Which Independent School District (ISD) an address is in. District only: attendance zones (which campus) are not in City data.",
+      inputSchema: { address: address.optional(), latitude: latitude.optional(), longitude: longitude.optional() },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("lookup_school_district", async (a: { address?: string; latitude?: number; longitude?: number }) => {
+      needLocation(a);
+      return lookupSchoolDistrict(a);
+    }),
+  );
+
+  server.registerTool(
+    "lookup_future_land_use",
+    {
+      title: "Look up the future land use plan for an address",
+      description: "The 2025 Comprehensive Plan future land use category for an address (a long-range planning guide, not zoning).",
+      inputSchema: { address: address.optional(), latitude: latitude.optional(), longitude: longitude.optional() },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("lookup_future_land_use", async (a: { address?: string; latitude?: number; longitude?: number }) => {
+      needLocation(a);
+      return lookupFutureLandUse(a);
+    }),
+  );
+
+  server.registerTool(
+    "find_nearby_schools",
+    {
+      title: "Find schools near an address",
+      description: "Schools within a radius of an address, nearest first, with type (Public/Private/Charter), district and level (from the school name).",
+      inputSchema: {
+        address: address.optional(),
+        latitude: latitude.optional(),
+        longitude: longitude.optional(),
+        radius_miles: z.number().min(0.1).max(5).default(2),
+        school_type: z.enum(["Public", "Private", "Charter"]).optional(),
+        level: z.enum(SCHOOL_LEVELS).optional(),
+        include_proposed: z.boolean().default(false),
+        include_district_facilities: z.boolean().default(false).describe("Also include district offices, transportation, stadiums, etc."),
+      },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap(
+      "find_nearby_schools",
+      async (a: { address?: string; latitude?: number; longitude?: number; radius_miles?: number; school_type?: "Public" | "Private" | "Charter"; level?: (typeof SCHOOL_LEVELS)[number]; include_proposed?: boolean; include_district_facilities?: boolean }) => {
+        needLocation(a);
+        return findNearbySchools({
+          ...a,
+          radiusMiles: a.radius_miles,
+          schoolType: a.school_type,
+          level: a.level,
+          includeProposed: a.include_proposed,
+          includeDistrictFacilities: a.include_district_facilities,
+        });
+      },
+    ),
+  );
+
+  server.registerTool(
+    "find_nearby_facilities",
+    {
+      title: "Find the nearest public facilities",
+      description: `Nearest City public facilities to an address, optionally of one category: ${FACILITY_CATEGORIES.join(", ")}.`,
+      inputSchema: {
+        address: address.optional(),
+        latitude: latitude.optional(),
+        longitude: longitude.optional(),
+        category: z.enum(FACILITY_CATEGORIES).optional(),
+        limit: z.number().int().min(1).max(10).default(5),
+      },
+      outputSchema,
+      annotations: READ_ONLY,
+    },
+    wrap("find_nearby_facilities", async (a: { address?: string; latitude?: number; longitude?: number; category?: FacilityCategory; limit?: number }) => {
+      needLocation(a);
+      return findNearbyFacilities(a);
+    }),
   );
 
   return server;

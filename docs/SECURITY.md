@@ -19,6 +19,7 @@
 | Error hygiene | Users see friendly messages and error codes; internal URLs and stack traces are logged server-side only. Express default error pages are replaced. | `toFailure`, `app.ts` | "never exposes internal details" test, malformed-JSON test |
 | Browser hardening | helmet CSP (`default-src 'self'`, `frame-ancestors 'none'`, tiles allowed only from Esri/OSM), `nosniff`, no `x-powered-by`. CORS reflected only for configured dev origins. Map popups are built with `textContent` (no HTML injection). Markdown rendering disallows raw HTML. | `app.ts`, `MapView.tsx`, `Message.tsx` | security-header tests |
 | Session ids | Server-issued random UUIDs only; unknown or invalid ids get a new session. | `sessions.ts` | session-id test |
+| Data minimisation (GIS) | Tools request only the fields they need. Staff names and e-mails published on some City layers (e.g. proposed-zoning planner) are never requested, and are redacted from the committed discovery evidence. The Special Events layer was rejected because it contains organisers' personal contact details. | tools, `scripts/gis-discovery.ts` | evidence scan: no e-mail addresses under `docs/` |
 | Privacy | No accounts, no cookies, no analytics. Conversations live in server memory for 30 idle minutes (max 2,000 sessions) and in the browser's `sessionStorage` for the tab. Logs record message length, not content. Geocoding sends only the typed address, to public geocoders, with `forStorage=false`. | `sessions.ts`, `App.tsx`, `app.ts` | code review |
 
 ## Remaining limitations and recommendations

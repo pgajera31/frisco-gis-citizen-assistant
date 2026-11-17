@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-11-17T21:42:44.294Z",
+  "runAt": "2026-11-17T22:35:47.325Z",
   "layers": {
     "addressPoints": {
       "used": true,
@@ -297,8 +297,8 @@
         "DESCRIPTIO": " ",
         "Status": "UNDER REVIEW",
         "Applied_Da": "09/29/2025",
-        "Planner": "JONATHAN HUBBARD",
-        "Planner_EM": "jhubbard@friscotexas.gov",
+        "Planner": "[redacted]",
+        "Planner_EM": "[redacted]",
         "Hyperlink": "https://etrakit.friscotexas.gov/etrakit/Search/project.aspx?activityNo=SUP25-000",
         "Type": "Zoning: Under Review",
         "SHAPE_STAr": 17450.484187,
@@ -740,6 +740,130 @@
         "MPH_ACTIVE": 20,
         "GlobalID": "{240AFE3C-58ED-48F5-B9E2-65DF64B82CBD}",
         "Shape.STLength()": 1319.3142941803828
+      }
+    },
+    "isdBoundaries": {
+      "used": true,
+      "title": "Independent School District Boundaries (FriscoZoning_ODH, layer 7)",
+      "url": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoZoning_ODH/FeatureServer/7",
+      "name": "ISD_Boundary",
+      "geometryType": "esriGeometryPolygon",
+      "featureCount": 13,
+      "capabilities": "Query",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "lastEditDate": "2026-11-17T10:10:32.709Z",
+      "fields": [
+        "OBJECTID:OID",
+        "NAME:String",
+        "Shape__Area:Double",
+        "Shape__Length:Double"
+      ],
+      "exampleQuery": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoZoning_ODH/FeatureServer/7/query?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json",
+      "sampleRecord": {
+        "OBJECTID": 1,
+        "NAME": "PLANO",
+        "Shape__Area": 227395222.375,
+        "Shape__Length": 72250.79184315169
+      }
+    },
+    "futureLandUse": {
+      "used": true,
+      "title": "Future Land Use Plan 2025 (FLU2025_Layers, layer 1)",
+      "url": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FLU2025_Layers/FeatureServer/1",
+      "name": "FutureLandUse",
+      "geometryType": "esriGeometryPolygon",
+      "featureCount": 514,
+      "capabilities": "Query",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "lastEditDate": "2026-02-09T20:02:31.024Z",
+      "fields": [
+        "OBJECTID:OID",
+        "FLU_Num:Integer",
+        "FLU_CD:String",
+        "FLU_Desc:String",
+        "district:String",
+        "acres:Double",
+        "hyperlink:String",
+        "FLU_YR:Integer",
+        "flu_year:String",
+        "Shape__Area:Double",
+        "Shape__Length:Double"
+      ],
+      "exampleQuery": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FLU2025_Layers/FeatureServer/1/query?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json",
+      "sampleRecord": {
+        "OBJECTID": 1,
+        "FLU_Num": 4,
+        "FLU_CD": "TOD",
+        "FLU_Desc": "Mixed Use Center",
+        "district": " ",
+        "acres": 39.68939758,
+        "hyperlink": "https://agenda.friscotexas.gov/AppNet/docpop/docpop.aspx?KT121_0_0_0=2025-04-22&KT2_0_0_0=&doctypeid=106",
+        "FLU_YR": 2025,
+        "flu_year": "2025",
+        "Shape__Area": 0.000015515879795202636,
+        "Shape__Length": 0.0203437089641413
+      }
+    },
+    "schools": {
+      "used": true,
+      "title": "Schools (FriscoPOI_ODH, layer 4)",
+      "url": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoPOI_ODH/FeatureServer/4",
+      "name": "Schools",
+      "geometryType": "esriGeometryPoint",
+      "featureCount": 122,
+      "capabilities": "Query,Extract",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "lastEditDate": "2026-11-17T10:09:41.899Z",
+      "fields": [
+        "OBJECTID:OID",
+        "NAME:String",
+        "ADDRESS:String",
+        "TYPE:String",
+        "LIFECYCLES:String",
+        "SUBTYPE:Integer",
+        "DISTRICT:String"
+      ],
+      "exampleQuery": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoPOI_ODH/FeatureServer/4/query?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json",
+      "sampleRecord": {
+        "OBJECTID": 1,
+        "NAME": "Z.T Acker Special Programs Center & Office Complex",
+        "ADDRESS": "7159 Hickory St",
+        "TYPE": "PUB",
+        "LIFECYCLES": "COMP",
+        "SUBTYPE": 5,
+        "DISTRICT": "FISD"
+      }
+    },
+    "publicFacilities": {
+      "used": true,
+      "title": "Public Facilities (FriscoPOI_ODH, layer 1)",
+      "url": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoPOI_ODH/FeatureServer/1",
+      "name": "Public_Facilities",
+      "geometryType": "esriGeometryPoint",
+      "featureCount": 38,
+      "capabilities": "Query,Extract",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "lastEditDate": "2026-11-17T10:09:41.491Z",
+      "fields": [
+        "OBJECTID:OID",
+        "NAME:String",
+        "ADDRESS:String",
+        "OWNER:String"
+      ],
+      "exampleQuery": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/ArcGIS/rest/services/FriscoPOI_ODH/FeatureServer/1/query?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json",
+      "sampleRecord": {
+        "OBJECTID": 1,
+        "NAME": "Public Works Annex",
+        "ADDRESS": "6865 Main St",
+        "OWNER": "FRI"
       }
     },
     "downtownProjectPolygons": {

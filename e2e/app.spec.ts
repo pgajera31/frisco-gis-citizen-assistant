@@ -111,6 +111,19 @@ test("downloads: results as CSV and the map as a PNG image", async ({ page }) =>
   await (await import("node:fs/promises")).writeFile(`${shots}/12-downloaded-map-image.png`, bytes);
 });
 
+test("use cases 11–14 from the 'More questions' list: school district and nearest fire station", async ({ page }) => {
+  await page.getByText("More questions you can ask").click();
+  await page.getByRole("button", { name: "Which school district is 6101 Frisco Square Blvd in?" }).click();
+  const district = page.locator(".msg-assistant").last();
+  await expect(district).toContainText("ISD");
+  await expect(district).toContainText(/attendance zone/i);
+  await expect(page.locator(".legend")).toContainText("School district boundary");
+  const fire = await ask(page, "Where is the nearest fire station to 6101 Frisco Square Blvd?");
+  await expect(fire).toContainText("Fire Station");
+  await expect(page.locator(".legend")).toContainText("Public facility");
+  await snap(page, "13-nearest-fire-station.png");
+});
+
 test("invalid address shows a clear message, not a fabricated answer", async ({ page }) => {
   const a = await ask(page, "What is the closest park to 99999 Nonexistent Imaginary Ln?");
   await expect(a).toContainText("couldn't find");

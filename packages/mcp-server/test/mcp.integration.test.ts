@@ -71,9 +71,10 @@ describe("MCP protocol (stdio)", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
-        "count_features_within_radius", "describe_data_sources", "find_nearby_trails", "find_nearest_parks", "find_parks_within_radius",
-        "find_road_projects", "find_road_projects_near", "find_traffic_closures", "geocode_address", "get_map_image", "get_park_details",
-        "get_speed_limit", "lookup_zoning", "search_gis_catalog", "search_parks_by_amenity", "search_trails",
+        "count_features_within_radius", "describe_data_sources", "find_nearby_facilities", "find_nearby_schools", "find_nearby_trails",
+        "find_nearest_parks", "find_parks_within_radius", "find_road_projects", "find_road_projects_near", "find_traffic_closures",
+        "geocode_address", "get_map_image", "get_park_details", "get_speed_limit", "lookup_future_land_use", "lookup_school_district",
+        "lookup_zoning", "search_gis_catalog", "search_parks_by_amenity", "search_trails",
       ].sort(),
     );
     for (const t of tools) {
@@ -260,6 +261,46 @@ describe.skipIf(!LIVE)("LIVE GIS use cases via MCP", () => {
     record("UC10b", "What's the speed limit on Preston Road near 8750 Preston Rd?", "get_speed_limit", args, s);
     expect(s.ok).toBe(true);
     expect(s.summary).toMatch(/\d+ mph/);
+  });
+
+  it("UC11 school district for an address (district only)", async () => {
+    const args = { address: ADDRESS };
+    const { s } = await call("lookup_school_district", args);
+    record("UC11", "Which school district is 6101 Frisco Square Blvd in?", "lookup_school_district", args, s);
+    expect(s.ok).toBe(true);
+    expect(s.results![0].schoolDistrict).toMatch(/ ISD$/);
+    expect(JSON.stringify(s)).toMatch(/attendance zone/i);
+  });
+
+  it("UC12 future land use (2025 plan description)", async () => {
+    const args = { address: ADDRESS };
+    const { s } = await call("lookup_future_land_use", args);
+    record("UC12", "What is the future land use for 6101 Frisco Square Blvd?", "lookup_future_land_use", args, s);
+    expect(s.ok).toBe(true);
+    expect(s.results![0].planYear).toBe(2025);
+    expect(String(s.results![0].futureLandUse).length).toBeGreaterThan(2);
+  });
+
+  it("UC13 schools near an address (no district support facilities)", async () => {
+    const args = { address: ADDRESS, radius_miles: 2 };
+    const { s } = await call("find_nearby_schools", args);
+    record("UC13", "What schools are near 6101 Frisco Square Blvd?", "find_nearby_schools", args, s);
+    expect(s.ok).toBe(true);
+    expect(s.count).toBeGreaterThan(0);
+    for (const r of s.results!) {
+      expect(Number(r.distanceMiles)).toBeLessThanOrEqual(2);
+      expect(String(r.name)).not.toMatch(/transportation|administration|service center|natatorium/i);
+    }
+  });
+
+  it("UC14 nearest fire station and library", async () => {
+    const args = { address: ADDRESS, category: "fire station" };
+    const { s } = await call("find_nearby_facilities", args);
+    record("UC14", "Where is the nearest fire station to 6101 Frisco Square Blvd?", "find_nearby_facilities", args, s);
+    expect(s.ok).toBe(true);
+    for (const r of s.results!) expect(r.category).toBe("fire station");
+    const lib = await call("find_nearby_facilities", { address: ADDRESS, category: "library" });
+    expect(lib.s.results![0].category).toBe("library");
   });
 
   it("TOOL search_gis_catalog finds the City's public construction maps", async () => {

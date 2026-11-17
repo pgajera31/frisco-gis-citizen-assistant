@@ -16,17 +16,18 @@ Raw evidence (committed):
 | `packages/mcp-server/test/unit.address-geometry.test.ts` | Unit | 27 | 27 | 0 | 0 |
 | `packages/mcp-server/test/mocked.reliability.test.ts` | Mocked (fake fetch) | 26 | 26 | 0 | 0 |
 | `packages/mcp-server/test/mocked.catalog-count-image.test.ts` | Mocked (catalog search, buffer/count, map image) | 11 | 11 | 0 | 0 |
+| `packages/mcp-server/test/mocked.places.test.ts` | Mocked (UC11–14 logic) | 16 | 16 | 0 | 0 |
 | `packages/mcp-server/test/mcp.integration.test.ts` — protocol | MCP integration (real server over stdio) | 8 | 8 | 0 | 0 |
-| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 16 | 16 | 0 | 0 |
-| `apps/backend/test/unit.planner.test.ts` | Unit | 51 | 51 | 0 | 0 |
+| `packages/mcp-server/test/mcp.integration.test.ts` — live | **Live GIS** via MCP | 20 | 20 | 0 | 0 |
+| `apps/backend/test/unit.planner.test.ts` | Unit | 62 | 62 | 0 | 0 |
 | `apps/backend/test/mocked.claude-loop.test.ts` | Mocked (scripted model + fake MCP) | 11 | 11 | 0 | 0 |
 | `apps/backend/test/mocked.api-security.test.ts` | Mocked (supertest + fake MCP) | 22 | 22 | 0 | 0 |
-| `apps/backend/test/live.e2e-pipeline.test.ts` | **Live** HTTP → MCP client → MCP server → ArcGIS (offline + AI-scripted + PNG) | 14 | 14 | 0 | 0 |
+| `apps/backend/test/live.e2e-pipeline.test.ts` | **Live** HTTP → MCP client → MCP server → ArcGIS (offline + AI-scripted + PNG) | 15 | 15 | 0 | 0 |
 | `apps/web/test/mapStyles.test.ts`, `csv.test.ts` | Unit | 8 | 8 | 0 | 0 |
-| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 11 | 11 | 0 | 0 |
-| **Total** | | **205** | **205** | **0** | **0** |
+| `e2e/app.spec.ts` | **Browser E2E** (Chromium desktop + mobile, live stack, axe) | 12 | 12 | 0 | 0 |
+| **Total** | | **238** | **238** | **0** | **0** |
 
-Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 30 live tests are skipped and everything else runs offline. The same offline run was reproduced from a clean clone with `npm ci` (as CI does).
+Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm run build && npm run test:e2e`. Without `LIVE_GIS=1` the 35 live tests are skipped and everything else runs offline. The same offline run was reproduced from a clean clone with `npm ci` (as CI does).
 
 ### Defects found by testing and fixed
 | Found by | Defect | Fix |
@@ -42,6 +43,11 @@ Commands: `LIVE_GIS=1 npm test` (all Vitest suites, live tests enabled) and `npm
 | E2E | Flaky skip-link focus test (headless focus starts in browser chrome) | Deterministic focus setup |
 | Clean-clone CI simulation | `npm run typecheck` / `npm test` failed on a fresh checkout because the backend imports the MCP server package's compiled output | Root `pretypecheck`, `pretest` and `predev` scripts build the MCP server package first |
 | Live map-image review | The caption drawn into map images was clipped (the print service ignores left alignment) | Caption anchored at the top centre and shortened |
+| Live smoke run (UC13) | "Schools near me" listed district offices and transportation depots | Subtype codes verified record by record; district support facilities (subtype 5) excluded by default |
+| Data review (UC12) | `FLU_CD` codes contradict the 2025 categories | Only `FLU_Desc` reported; documented for the City |
+| Live smoke run (UC14) | "Parks and Recreation – Administration" categorised as recreation | Administration offices categorised as "other" |
+| Planner test | "school zones on Preston Road speed limit" captured "Preston Road speed limit" as the street | Trailing "speed limit"/"mph" stripped |
+| Evidence privacy scan | Discovery sample record contained a City planner's name and e-mail (published on the proposed-zoning layer) | Person and contact fields redacted in committed evidence |
 
 ## Per-use-case results
 
@@ -63,6 +69,15 @@ All rows use **live GIS data**. "Mode" indicates which assistant path produced t
 | NEG1 | Zoning at 99999 Nonexistent Imaginary Ln | geocoders | Clear failure, no fabrication | `ADDRESS_NOT_FOUND` → "I couldn't find … in or near Frisco" | **Pass** | — | — | Live |
 | NEG2 | Speed limit on Zzyzx Boulevard | Speed Limits | No made-up limit | No match / suggestions only | **Pass** | — | — | Live |
 
+### Use cases 11–14
+
+| ID | Citizen question | GIS source | Expected | Actual (2026-11-17) | Status | Live/mocked |
+|---|---|---|---|---|---|---|
+| UC11 | Which school district is 6101 Frisco Square Blvd in? | ISD boundaries | District + attendance-zone caveat | "**Frisco ISD**" with the caveat | **Pass** (MCP, API, browser) | Live + mocked (boundary case) |
+| UC12 | What is the future land use for 6101 Frisco Square Blvd? | Future Land Use 2025 | 2025 description, not legacy code | "**Town Center**", 2025 plan, adoption document link | **Pass** (MCP, API) | Live + mocked (code ignored) |
+| UC13 | What schools are near 6101 Frisco Square Blvd? | Schools | Real schools ≤ 2 mi, no district offices | **17 schools**; closest Benton A. Staley Middle School 0.77 mi; no admin/transport entries | **Pass** (MCP, API) | Live + mocked |
+| UC14 | Where is the nearest fire station to 6101 Frisco Square Blvd? | Public Facilities | Nearest of that category | **Fire Station 4**, 0.9 mi; library query → Frisco Public Library 0.38 mi | **Pass** (MCP, API, browser) | Live + mocked |
+
 ### Proposal tool-catalog tools (added after the 10 use cases)
 
 | ID | Question / action | Source | Expected | Actual (2026-11-17) | Status | Live/mocked |
@@ -76,7 +91,7 @@ All rows use **live GIS data**. "Mode" indicates which assistant path produced t
 
 **Functional:** GIS requests and pagination (mocked + live); every MCP tool (live); MCP client connect/discover/call (MCP integration + backend live); geocoding incl. fallbacks (live UC10b); spatial searches (UC1/2/6/9); amenity filtering (UC3/4, spatial-join fixture test); zoning (UC5); trails (UC6/7); road projects (UC8/9); speed limits (UC10, fixture clarification test); map visualization (browser: polygons, markers, legend, popups, result selection).
 
-**Conversational:** follow-ups (UC4 offline + AI-scripted); context reuse ("zoning there"); ambiguous requests (Preston Rd clarification; "nearest park?" without address asks for one); unsupported questions (weather, poems → help text); 51 phrasing-variation and planner unit tests.
+**Conversational:** follow-ups (UC4 offline + AI-scripted); context reuse ("zoning there"); ambiguous requests (Preston Rd clarification; "nearest park?" without address asks for one); unsupported questions (weather, poems → help text); 62 phrasing-variation and planner unit tests.
 
 **Reliability:** invalid addresses (NEG1); missing records/empty results (NEG2, zero-result summaries); service timeouts, network failures, 5xx with retry, ArcGIS error-in-200, non-JSON bodies, oversized results (mocked); AI provider failure → offline fallback (mocked API); MCP connection failure → 503 (mocked API); City speed layer outage → open-data fallback (mocked).
 
